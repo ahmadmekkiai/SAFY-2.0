@@ -4,37 +4,41 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { FaCheckCircle, FaThumbsUp, FaThumbsDown } from "react-icons/fa";
 import { MdLocationOn, MdRestaurantMenu } from "react-icons/md";
-import { useLocale } from "next-intl"; // عشان نعرف لغة التطبيق الحالية
+import { useLocale } from "next-intl";
 
 export default function AdCard(props: any) {
-  // تحديد اللغة
   const locale = useLocale();
   const isAr = locale === "ar";
 
-  // معالجة مرنة للبيانات عشان نتجنب اختفاء أي عنصر (بياخد أكتر من اسم محتمل للـ prop)
-  const title = props.title || props.name || (isAr ? "اسم المطعم غير متوفر" : "Restaurant Name N/A");
-  const imageUrl = props.imageUrl || props.image_url || props.image || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=500";
-  const reward = props.reward || props.points || props.rewardPoints || 0;
-  const neighborhood = props.neighborhood || props.location || (isAr ? "الحي غير محدد" : "Location N/A");
-  const distance = props.distance || "0";
-  const id = props.id;
+  // فك التغليف: لو الداتا مبعوتة جوه prop اسمه ad أو item بنقراها فوراً
+  const data = props.ad || props.item || props;
+
+  const title = data.title || data.name || data.advertiser || (isAr ? "اسم المطعم غير متوفر" : "Restaurant Name N/A");
+  const imageUrl = data.imageUrl || data.image_url || data.image || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=500";
+  const reward = data.reward || data.points || data.rewardPoints || data.reward_amount || 0;
+  const neighborhood = data.neighborhood || data.location || data.category || (isAr ? "الرياض" : "Riyadh");
+  const distance = data.distance || "0";
+  const id = data.id || "1";
 
   const [timeLeft, setTimeLeft] = useState(30);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [showOverlay, setShowOverlay] = useState(false); // للتحكم في ظهور رسالة الإنجاز
-  const [isActive, setIsActive] = useState(false); // عشان نعرف الكارت ده قدام الشاشة ولا لأ
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const [likeStatus, setLikeStatus] = useState<"like" | "dislike" | null>(null);
 
-  // الريف ده هيمسك الكارت عشان نراقبه
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // تقنية مراقبة الكارت (هل هو ظاهر في الشاشة بنسبة 70% ولا لأ)
+  // السحر هنا: تقليل المنطقة النشطة لمنتصف الشاشة فقط
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsActive(entry.isIntersecting);
       },
-      { threshold: 0.7 } // الكارت لازم يكون ظاهر بنسبة 70% عشان يبدأ يعد
+      { 
+        root: null,
+        rootMargin: "-35% 0px -35% 0px", // الكارت يشتغل بس لو لمس الـ 30% اللي في نص الشاشة (كارت واحد فقط)
+        threshold: 0
+      }
     );
 
     if (cardRef.current) {
@@ -46,28 +50,31 @@ export default function AdCard(props: any) {
     };
   }, []);
 
-  // تشغيل العداد فقط لو الكارت ظاهر (isActive)
   useEffect(() => {
     let timerId: NodeJS.Timeout;
 
+    // العداد هيشتغل بس للكارت الـ Active
     if (isActive && timeLeft > 0 && !isCompleted) {
       timerId = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
-    } else if (timeLeft === 0 && !isCompleted) {
+    } else if (isActive && timeLeft === 0 && !isCompleted) {
       setIsCompleted(true);
-      setShowOverlay(true); // إظهار رسالة النجاح
+      setShowOverlay(true);
       
+      // إرسال النقاط للمحفظة
       if (props.onRewardEarned) {
         props.onRewardEarned(id, reward);
+      } else if (data.onRewardEarned) {
+        data.onRewardEarned(id, reward);
       }
 
-      // إخفاء رسالة النجاح بعد ثانيتين والرجوع للكارت
+      // إخفاء رسالة النجاح بعد ثانيتين والرجوع للكارت مقفول
       setTimeout(() => {
         setShowOverlay(false);
       }, 2000);
     }
 
     return () => clearTimeout(timerId);
-  }, [isActive, timeLeft, isCompleted, id, reward, props]);
+  }, [isActive, timeLeft, isCompleted, id, reward, props, data]);
 
   const progressPercentage = ((30 - timeLeft) / 30) * 100;
 
@@ -86,7 +93,7 @@ export default function AdCard(props: any) {
           />
         </div>
 
-        {/* بادج الثواني المتبقية أو علامة الصح */}
+        {/* بادج الثواني */}
         <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 z-10">
           {isCompleted ? (
             <span className="text-[#D4AF37]">{isAr ? "مكتمل ✓" : "Completed ✓"}</span>
@@ -113,7 +120,7 @@ export default function AdCard(props: any) {
           </span>
         </div>
 
-        {/* أزرار التفاعل (المنيو، لايك، ديسلايك) والنقاط */}
+        {/* أزرار التفاعل والنقاط */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center gap-4">
             <button className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-[#D4AF37] transition-colors">
@@ -121,7 +128,6 @@ export default function AdCard(props: any) {
               {isAr ? "المنيو" : "Menu"}
             </button>
             
-            {/* زر اللايك */}
             <button 
               onClick={() => setLikeStatus(likeStatus === "like" ? null : "like")}
               className={`transition-colors ${likeStatus === "like" ? "text-green-500" : "text-gray-400 hover:text-green-500"}`}
@@ -129,7 +135,6 @@ export default function AdCard(props: any) {
               <FaThumbsUp size={18} />
             </button>
 
-            {/* زر الديسلايك */}
             <button 
               onClick={() => setLikeStatus(likeStatus === "dislike" ? null : "dislike")}
               className={`transition-colors ${likeStatus === "dislike" ? "text-red-500" : "text-gray-400 hover:text-red-500"}`}
@@ -145,7 +150,7 @@ export default function AdCard(props: any) {
         </div>
       </div>
 
-      {/* الأنيميشن الاحتفالي بيظهر ويختفي بعد ثانيتين */}
+      {/* الأنيميشن الاحتفالي */}
       {showOverlay && (
         <div className="absolute inset-0 z-20 bg-black/85 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
           <FaCheckCircle className="text-[#D4AF37] text-6xl mb-4 animate-bounce" />
