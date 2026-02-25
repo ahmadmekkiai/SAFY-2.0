@@ -11,6 +11,7 @@ import TasksTab from "@/components/tabs/TasksTab";
 import WalletTab from "@/components/tabs/WalletTab";
 import ProfileTab from "@/components/tabs/ProfileTab";
 import FavoritesTab from "@/components/tabs/FavoritesTab";
+import LeaderboardTab from "@/components/tabs/LeaderboardTab"; // تم الاستيراد
 import InterestSelection from "@/components/InterestSelection";
 import { type AdCampaign } from "@/lib/mockCampaigns";
 import SplashScreen from "@/components/SplashScreen";
@@ -26,7 +27,7 @@ export default function Home() {
     const [showSplash, setShowSplash] = useState(true);
     const [isFadingOut, setIsFadingOut] = useState(false);
 
-    // Favorites state — lifted here so ForYouTab and FavoritesTab share it
+    // Favorites state
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
     const [allCampaigns, setAllCampaigns] = useState<AdCampaign[]>([]);
 
@@ -112,6 +113,10 @@ export default function Home() {
                 <HotDealsTab isActive={activeTab === "hot-deals"} />
                 <TasksTab isActive={activeTab === "tasks"} />
                 <WalletTab isActive={activeTab === "wallet"} />
+                
+                {/* إضافة لوحة الشرف هنا */}
+                <LeaderboardTab isActive={activeTab === "leaderboard"} /> 
+
                 <FavoritesTab
                     isActive={activeTab === "favorites"}
                     savedIds={savedIds}
