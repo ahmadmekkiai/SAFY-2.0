@@ -6,29 +6,30 @@ import { FaCheckCircle, FaThumbsUp, FaThumbsDown } from "react-icons/fa";
 import { MdLocationOn, MdRestaurantMenu } from "react-icons/md";
 import { useLocale } from "next-intl";
 
-export default function AdCard(props: any) {
+interface AdCardProps {
+  id: string;
+  title: string;
+  neighborhood?: string;
+  distance?: string;
+  imageUrl: string;
+  rewardPoints?: number;
+  onRewardEarned?: (id: string, points: number) => void;
+  // إضافة أي خصائص تانية ممكن تكون الصفحة الأم بتبعتها
+  [key: string]: any;
+}
+
+export default function AdCard({
+  id,
+  title,
+  neighborhood = "حي السليمانية",
+  distance = "1.5",
+  imageUrl,
+  rewardPoints = 10,
+  onRewardEarned,
+  ...rest
+}: AdCardProps) {
   const locale = useLocale();
   const isAr = locale === "ar";
-
-  // استخراج البيانات بكل الأسماء المحتملة في قاعدة البيانات
-  const data = props.ad || props.item || props.data || props;
-  
-  // اسم المطعم (ضفنا restaurant_name و advertiser_name)
-  const title = data.title || data.name || data.restaurant_name || data.restaurantName || data.advertiser || data.advertiser_name || (isAr ? "مطعم مميز" : "Featured Restaurant");
-  
-  // الصورة
-  const imageUrl = data.imageUrl || data.image_url || data.image || data.logo || data.cover_image || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=500";
-  
-  // النقاط (ضفنا points و reward_points وحطينا 10 كقيمة افتراضية لو الداتا بيز فاضية)
-  const reward = data.reward || data.points || data.reward_points || data.rewardPoints || data.reward_amount || data.amount || 10;
-  
-  // الحي (ضفنا district)
-  const neighborhood = data.neighborhood || data.district || data.location || data.category || data.address || (isAr ? "الرياض" : "Riyadh");
-  
-  // المسافة (ضفنا distance_km وحطينا 1.5 كقيمة افتراضية لو مش بتتحسب لسه)
-  const distance = data.distance || data.distance_km || data.dist || "1.5";
-  
-  const id = data.id || Math.random().toString();
 
   const [timeLeft, setTimeLeft] = useState(30);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -38,7 +39,7 @@ export default function AdCard(props: any) {
 
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // شعاع الليزر: تفعيل الكارت فقط لو تقاطع مع خط المنتصف بنسبة 1% (كارت واحد فقط)
+  // التايمر الذكي: كارت واحد بس اللي بيعد
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -46,7 +47,7 @@ export default function AdCard(props: any) {
       },
       { 
         root: null,
-        rootMargin: "-49% 0px -49% 0px", // 2% فقط في منتصف الشاشة
+        rootMargin: "-49% 0px -49% 0px", 
         threshold: 0
       }
     );
@@ -60,7 +61,6 @@ export default function AdCard(props: any) {
     };
   }, []);
 
-  // تشغيل العداد
   useEffect(() => {
     let timerId: NodeJS.Timeout;
 
@@ -70,10 +70,8 @@ export default function AdCard(props: any) {
       setIsCompleted(true);
       setShowOverlay(true);
       
-      if (typeof props.onRewardEarned === 'function') {
-        props.onRewardEarned(id, reward);
-      } else if (typeof data.onRewardEarned === 'function') {
-        data.onRewardEarned(id, reward);
+      if (onRewardEarned) {
+        onRewardEarned(id, rewardPoints);
       }
 
       setTimeout(() => {
@@ -82,7 +80,7 @@ export default function AdCard(props: any) {
     }
 
     return () => clearTimeout(timerId);
-  }, [isActive, timeLeft, isCompleted, id, reward, props, data]);
+  }, [isActive, timeLeft, isCompleted, id, rewardPoints, onRewardEarned]);
 
   const progressPercentage = ((30 - timeLeft) / 30) * 100;
 
@@ -91,7 +89,7 @@ export default function AdCard(props: any) {
       
       {/* صورة الإعلان */}
       <div className="relative h-48 w-full bg-gray-200">
-        <Image src={imageUrl} alt={title} fill className="object-cover" unoptimized />
+        <Image src={imageUrl} alt={title || "صورة المطعم"} fill className="object-cover" unoptimized />
         
         {/* شريط التقدم */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/20">
@@ -154,7 +152,7 @@ export default function AdCard(props: any) {
           </div>
           
           <div className="bg-[#f9f6ef] border border-[#D4AF37]/30 text-[#D4AF37] font-extrabold flex items-center gap-1 px-3 py-1 rounded-full shadow-sm">
-            <span>+{reward}</span>
+            <span>+{rewardPoints}</span>
             <span className="text-xs">{isAr ? "نقطة" : "Pts"}</span>
           </div>
         </div>
@@ -168,7 +166,7 @@ export default function AdCard(props: any) {
             {isAr ? "عاش جداً!" : "Great Job!"}
           </h2>
           <p className="text-gray-200 text-base font-medium">
-            {isAr ? `تم إضافة ${reward} نقطة لرصيدك` : `Added ${reward} points to your wallet`}
+            {isAr ? `تم إضافة ${rewardPoints} نقطة لرصيدك` : `Added ${rewardPoints} points to your wallet`}
           </p>
         </div>
       )}
