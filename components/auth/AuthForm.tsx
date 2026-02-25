@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Mail, Lock, User, Phone, ArrowRight, Loader2, KeyRound } from "lucide-react";
+import { Mail, Lock, User, Phone, ArrowRight, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthFormProps {
@@ -17,17 +17,12 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
     const [success, setSuccess] = useState<string | null>(null);
 
     // States
-    const [identifier, setIdentifier] = useState(""); // للإيميل أو الجوال
+    const [identifier, setIdentifier] = useState(""); // للإيميل أو الجوال في الدخول
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [fullName, setFullName] = useState("");
-
-    // States للـ OTP و تذكرني
     const [rememberMe, setRememberMe] = useState(false);
-    const [isOtpStep, setIsOtpStep] = useState(false); // هل نحن في خطوة إدخال الكود؟
-    const [otpCode, setOtpCode] = useState("");
-    const [resolvedEmail, setResolvedEmail] = useState(""); // لحفظ الإيميل اللي هنبعتله الكود
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -61,8 +56,8 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                 }
                 setSuccess("تم إنشاء الحساب بنجاح! يرجى مراجعة بريدك الإلكتروني للتفعيل.");
                 
-            } else if (mode === "login" && !isOtpStep) {
-                // 2. طلب كود OTP للدخول
+            } else {
+                // 2. تسجيل الدخول (بالباسورد + الإيميل أو الجوال)
                 let loginEmail = identifier;
 
                 // لو المستخدم كتب رقم موبايل (مفيش علامة @)
@@ -76,43 +71,31 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                     if (profileError || !profileData?.email) {
                         throw new Error("لم نتمكن من العثور على حساب مرتبط برقم الجوال هذا.");
                     }
-                    loginEmail = profileData.email;
+                    loginEmail = profileData.email; // لقينا الإيميل المربوط بالرقم
                 }
 
-                setResolvedEmail(loginEmail);
-
-                // إرسال OTP عبر Supabase
-                const { error: otpError } = await supabase.auth.signInWithOtp({
+                // تسجيل الدخول بالباسورد
+                const { error: signInError } = await supabase.auth.signInWithPassword({
                     email: loginEmail,
-                    options: {
-                        shouldCreateUser: false, // منع إنشاء حساب جديد لو الإيميل مش موجود
+                    password: password,
+                });
+
+                if (signInError) {
+                    if (signInError.message.includes("Invalid login credentials")) {
+                        throw new Error("كلمة المرور أو بيانات الدخول غير صحيحة.");
                     }
-                });
-
-                if (otpError) throw otpError;
-
-                setSuccess(`تم إرسال كود التحقق (OTP) إلى: ${loginEmail}`);
-                setIsOtpStep(true); // الانتقال لشاشة إدخال الكود
-
-            } else if (mode === "login" && isOtpStep) {
-                // 3. التحقق من كود OTP وتسجيل الدخول
-                const { error: verifyError, data } = await supabase.auth.verifyOtp({
-                    email: resolvedEmail,
-                    token: otpCode,
-                    type: 'email', // نوع التحقق
-                });
-
-                if (verifyError) throw verifyError;
+                    throw signInError;
+                }
 
                 // معالجة "تذكرني دائماً"
                 if (!rememberMe) {
-                    // إذا لم يقم بتفعيلها، نقوم بحفظ متغير مؤقت في الجلسة الحالية
-                    // (يمكن استخدام هذا المتغير لاحقاً في الـ Layout لتسجيل خروجه عند إغلاق المتصفح)
+                    // الجلسة تنتهي بإغلاق المتصفح (ممكن نربطها في الـ Layout لاحقاً)
                     sessionStorage.setItem('temp_session_safy', 'true');
                 } else {
                     sessionStorage.removeItem('temp_session_safy');
                 }
 
+                // توجيه المستخدم لصفحة التطبيق
                 window.location.href = "/ar/app";
             }
         } catch (err: any) {
@@ -135,7 +118,7 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                 </h2>
                 <p className="text-blue-100 dark:text-slate-300 text-sm">
                     {mode === "login" 
-                        ? (isOtpStep ? "أدخل كود التحقق المرسل إليك" : "مرحباً بعودتك إلى SAFY")
+                        ? "مرحباً بعودتك إلى SAFY"
                         : "انضم إلينا وابدأ في كسب النقاط اليوم"}
                 </p>
             </div>
@@ -170,17 +153,10 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                                     <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="05XXXXXXXX" dir="ltr" />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-white mb-1">كلمة المرور (اختياري للرجوع)</label>
-                                <div className="relative">
-                                    <Lock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
-                                    <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="••••••••" dir="ltr" />
-                                </div>
-                            </div>
                         </motion.div>
                     )}
 
-                    {mode === "login" && !isOtpStep && (
+                    {mode === "login" && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-white mb-1">البريد الإلكتروني أو رقم الجوال</label>
@@ -189,29 +165,29 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                                     <input type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="الايميل أو 05XXXXXXXX" dir="ltr" />
                                 </div>
                             </div>
-                            
-                            {/* زر تذكرني */}
-                            <div className="flex items-center gap-2 mt-2">
-                                <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] accent-[#D4AF37] cursor-pointer" />
-                                <label htmlFor="rememberMe" className="text-sm text-white cursor-pointer select-none">
-                                    تذكرني دائماً
-                                </label>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {mode === "login" && isOtpStep && (
-                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-white mb-1">كود التحقق (OTP)</label>
-                                <div className="relative">
-                                    <KeyRound className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
-                                    <input type="text" required value={otpCode} onChange={(e) => setOtpCode(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent tracking-[0.5em] font-bold text-center" placeholder="123456" dir="ltr" maxLength={6} />
-                                </div>
-                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* حقل كلمة المرور (موجود في الدخول والتسجيل) */}
+                <motion.div layout className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-white mb-1">كلمة المرور</label>
+                        <div className="relative">
+                            <Lock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="••••••••" dir="ltr" />
+                        </div>
+                    </div>
+
+                    {mode === "login" && (
+                        <div className="flex items-center gap-2 mt-2">
+                            <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] accent-[#D4AF37] cursor-pointer" />
+                            <label htmlFor="rememberMe" className="text-sm text-white cursor-pointer select-none">
+                                تذكرني دائماً
+                            </label>
+                        </div>
+                    )}
+                </motion.div>
 
                 {error && (
                     <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-100 text-sm font-medium">
@@ -234,7 +210,7 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                         <Loader2 className="w-6 h-6 animate-spin" />
                     ) : (
                         <>
-                            {mode === "signup" ? "إنشاء حساب" : (isOtpStep ? "تأكيد الكود والدخول" : "إرسال كود التحقق")}
+                            {mode === "signup" ? "إنشاء حساب" : "تسجيل الدخول"}
                             <ArrowRight className="w-5 h-5 rotate-180" />
                         </>
                     )}
@@ -245,7 +221,6 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                 <button
                     onClick={() => {
                         onToggleMode();
-                        setIsOtpStep(false);
                         setError(null);
                         setSuccess(null);
                     }}
