@@ -10,14 +10,24 @@ export default function AdCard(props: any) {
   const locale = useLocale();
   const isAr = locale === "ar";
 
-  // 1. مستخرج البيانات الهجومي (بيجيب الداتا مهما كان مكانها أو اسمها)
+  // استخراج البيانات بكل الأسماء المحتملة في قاعدة البيانات
   const data = props.ad || props.item || props.data || props;
   
-  const title = data.title || data.name || data.advertiser || data.restaurantName || (isAr ? "جاري التحميل..." : "Loading...");
-  const imageUrl = data.imageUrl || data.image_url || data.image || data.logo || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=500";
-  const reward = data.reward || data.points || data.rewardPoints || data.reward_amount || data.rewardAmount || 0;
-  const neighborhood = data.neighborhood || data.location || data.category || data.address || (isAr ? "حي الخليج" : "Al Khaleej");
-  const distance = data.distance || data.dist || "0";
+  // اسم المطعم (ضفنا restaurant_name و advertiser_name)
+  const title = data.title || data.name || data.restaurant_name || data.restaurantName || data.advertiser || data.advertiser_name || (isAr ? "مطعم مميز" : "Featured Restaurant");
+  
+  // الصورة
+  const imageUrl = data.imageUrl || data.image_url || data.image || data.logo || data.cover_image || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=500";
+  
+  // النقاط (ضفنا points و reward_points وحطينا 10 كقيمة افتراضية لو الداتا بيز فاضية)
+  const reward = data.reward || data.points || data.reward_points || data.rewardPoints || data.reward_amount || data.amount || 10;
+  
+  // الحي (ضفنا district)
+  const neighborhood = data.neighborhood || data.district || data.location || data.category || data.address || (isAr ? "الرياض" : "Riyadh");
+  
+  // المسافة (ضفنا distance_km وحطينا 1.5 كقيمة افتراضية لو مش بتتحسب لسه)
+  const distance = data.distance || data.distance_km || data.dist || "1.5";
+  
   const id = data.id || Math.random().toString();
 
   const [timeLeft, setTimeLeft] = useState(30);
@@ -28,7 +38,7 @@ export default function AdCard(props: any) {
 
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // 2. السحر هنا: تقليص منطقة التفعيل لخط وهمي في منتصف الشاشة بالضبط (عشان كارت واحد بس اللي يعد)
+  // شعاع الليزر: تفعيل الكارت فقط لو تقاطع مع خط المنتصف بنسبة 1% (كارت واحد فقط)
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -36,8 +46,7 @@ export default function AdCard(props: any) {
       },
       { 
         root: null,
-        // -45% من فوق و -45% من تحت بيسيب 10% بس في نص الشاشة، مستحيل كارتين يلمسوها مع بعض
-        rootMargin: "-45% 0px -45% 0px", 
+        rootMargin: "-49% 0px -49% 0px", // 2% فقط في منتصف الشاشة
         threshold: 0
       }
     );
@@ -51,25 +60,22 @@ export default function AdCard(props: any) {
     };
   }, []);
 
-  // 3. تشغيل العداد
+  // تشغيل العداد
   useEffect(() => {
     let timerId: NodeJS.Timeout;
 
-    // العداد يشتغل بس لو الكارت Active وما خلصش
     if (isActive && timeLeft > 0 && !isCompleted) {
       timerId = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (isActive && timeLeft === 0 && !isCompleted) {
       setIsCompleted(true);
       setShowOverlay(true);
       
-      // نبعت النقاط للمحفظة
       if (typeof props.onRewardEarned === 'function') {
         props.onRewardEarned(id, reward);
       } else if (typeof data.onRewardEarned === 'function') {
         data.onRewardEarned(id, reward);
       }
 
-      // نخفي رسالة الإنجاز بعد ثانيتين
       setTimeout(() => {
         setShowOverlay(false);
       }, 2000);
@@ -81,13 +87,13 @@ export default function AdCard(props: any) {
   const progressPercentage = ((30 - timeLeft) / 30) * 100;
 
   return (
-    <div ref={cardRef} className={`relative bg-white rounded-2xl shadow-sm border overflow-hidden mb-4 transition-all duration-300 ${isActive ? 'border-[#D4AF37] scale-[1.02] shadow-md' : 'border-gray-100 scale-100'}`}>
+    <div ref={cardRef} className={`relative bg-white rounded-2xl shadow-sm border overflow-hidden mb-4 transition-all duration-300 ${isActive ? 'border-[#D4AF37] scale-[1.02] shadow-md ring-1 ring-[#D4AF37]/50' : 'border-gray-100 scale-100 opacity-90'}`}>
       
       {/* صورة الإعلان */}
       <div className="relative h-48 w-full bg-gray-200">
         <Image src={imageUrl} alt={title} fill className="object-cover" unoptimized />
         
-        {/* شريط التقدم (السلايدر) */}
+        {/* شريط التقدم */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/20">
           <div 
             className="h-full bg-gradient-to-r from-[#D4AF37] to-[#F3E5AB] transition-all duration-1000 ease-linear"
@@ -119,7 +125,7 @@ export default function AdCard(props: any) {
             </p>
           </div>
           {/* المسافة */}
-          <span className="bg-gray-50 text-gray-600 border border-gray-100 text-xs px-2 py-1 rounded-md font-bold whitespace-nowrap shadow-sm">
+          <span className="bg-gray-50 text-gray-600 border border-gray-100 text-xs px-2 py-1 rounded-md font-bold whitespace-nowrap shadow-sm h-fit mt-1">
             {distance} {isAr ? "كم" : "km"}
           </span>
         </div>
