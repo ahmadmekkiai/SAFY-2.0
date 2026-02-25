@@ -2,12 +2,19 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Search, Target } from "lucide-react";
+import { MapPin, Search, Target, Map, List } from "lucide-react";
 import AdCard, { ExtendedCampaign } from "@/components/AdCard";
 import { FALLBACK_LOCATION } from "@/lib/mockLocalData";
 import { calculateDistance } from "@/utils/distance";
 import { createClient } from "@/lib/supabase/client";
-import { useTranslations } from "next-intl"; // للترجمة
+import { useTranslations } from "next-intl";
+import dynamic from 'next/dynamic';
+
+// استدعاء الخريطة ديناميكياً عشان متضربش إيرور في Next.js
+const MapView = dynamic(() => import('@/components/MapView'), { 
+    ssr: false,
+    loading: () => <div className="w-full h-[60vh] bg-slate-200 dark:bg-slate-800 animate-pulse rounded-3xl flex items-center justify-center text-slate-500">جاري تحميل الخريطة...</div>
+});
 
 interface ForYouTabProps {
     isActive: boolean;
@@ -23,7 +30,10 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [maxAdsLimit, setMaxAdsLimit] = useState(1000); 
     const [activeChip, setActiveChip] = useState("الكل");
-    const [userSession, setUserSession] = useState<any>(null); // حفظ السيشن عشان ندي النقاط
+    const [userSession, setUserSession] = useState<any>(null); 
+    
+    // حالة جديدة لعرض الخريطة أو القائمة
+    const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -37,62 +47,32 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    }, [activeChip, searchQuery]);
+    }, [activeChip, searchQuery, viewMode]);
 
     const fetchLocationAndBuildFeed = useCallback(async () => {
         setLoading(true);
-        let maxAds = 1000;
         let minDiscount = 20;
-
-        if (typeof window !== "undefined") {
-            const savedPrefs = localStorage.getItem('safy_ad_prefs');
-            if (savedPrefs) {
-                try {
-                    const parsed = JSON.parse(savedPrefs);
-                    if (parsed.dailyLimit) {
-                        maxAds = Math.max(parsed.dailyLimit, 1000);
-                        setMaxAdsLimit(maxAds);
-                    }
-                    if (parsed.minDiscount !== undefined) minDiscount = parsed.minDiscount;
-                } catch (e) {
-                    console.error("Error parsing ad prefs:", e);
-                }
-            }
-        }
 
         const supabase = createClient();
         let userInterests: string[] = [];
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                setUserSession(session); // نحفظ السيشن
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('interests')
-                    .eq('id', session.user.id)
-                    .single();
-                if (data?.interests) {
-                    userInterests = data.interests;
-                }
+                setUserSession(session);
+                const { data } = await supabase.from('profiles').select('interests').eq('id', session.user.id).single();
+                if (data?.interests) userInterests = data.interests;
             }
-        } catch (error) {
-            console.error("Error fetching interests:", error);
-        }
+        } catch (error) { console.error(error); }
 
         const buildFeed = async (lat: number, lng: number, fallback: boolean) => {
             setUserLocation({ lat, lng });
             setIsFallback(fallback);
-
             let radius = 1000;
             let filtered: ExtendedCampaign[] = [];
 
             try {
                 const { data: adsData, error } = await supabase.from('local_ads').select('*');
-                if (error) {
-                    console.error("Error fetching local ads:", error);
-                    setLoading(false);
-                    return;
-                }
+                if (error) { setLoading(false); return; }
 
                 const dbAds = adsData || [];
 
@@ -100,20 +80,9 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                     const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
                     const rawReward = ad.reward || 1.5;
                     const realisticReward = Math.round(rawReward * 10);
-
-                    // حل مشكلة الحي هنا: بنحاول نقرا اسم الحي من كذا مكان
                     const actualNeighborhood = ad.neighborhood || ad.district || ad.city || "الرياض";
 
-                    const merchant = {
-                        id: ad.id,
-                        name: ad.advertiser || "Unknown",
-                        logo: ad.imageUrl || "/placeholder-logo.jpg",
-                        category: actualNeighborhood, // دلوقتي category شايل اسم الحي الفعلي
-                        overall_likes: Math.floor(Math.random() * 5000) + 1000,
-                        overall_dislikes: Math.floor(Math.random() * 300) + 50
-                    };
-
-                    const campaign = {
+                    return {
                         id: `c_${ad.id}`,
                         merchant_id: ad.id,
                         title: ad.title || "Untitled",
@@ -125,10 +94,17 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                         bounty_budget: realisticReward > 10 ? 25000 : 0,
                         bounty_reward: realisticReward * 100,
                         actionText: ad.actionText,
-                        is_active: true
-                    };
-
-                    return { ...campaign, merchant, distance } as ExtendedCampaign;
+                        is_active: true,
+                        merchant: {
+                            id: ad.id,
+                            name: ad.advertiser || "Unknown",
+                            logo: ad.imageUrl || "/placeholder-logo.jpg",
+                            category: actualNeighborhood,
+                            overall_likes: Math.floor(Math.random() * 5000) + 1000,
+                            overall_dislikes: Math.floor(Math.random() * 300) + 50
+                        },
+                        distance
+                    } as ExtendedCampaign;
                 }).filter(c => c.distance !== undefined && c.distance <= radius && c.discountPercentage >= minDiscount);
 
                 if (userInterests.length > 0) {
@@ -137,9 +113,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                         userInterests.some(i => c.merchant.category.startsWith(i)) ||
                         userInterests.some(i => i.startsWith(c.merchant.category))
                     );
-                    if (interestMatches.length > 0) {
-                        matches = interestMatches;
-                    }
+                    if (interestMatches.length > 0) matches = interestMatches;
                 }
 
                 filtered = matches;
@@ -147,31 +121,14 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 if (filtered.length === 0) {
                     filtered = dbAds.map((ad: any) => {
                         const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
-                        const rawReward = ad.reward || 1.5;
-                        const realisticReward = Math.round(rawReward * 10);
-                        const actualNeighborhood = ad.neighborhood || ad.district || ad.city || "الرياض";
-
                         return {
                             id: `c_${ad.id}`,
-                            merchant_id: ad.id,
                             title: ad.title || "Untitled",
-                            video_url: ad.imageUrl || "",
                             lat: ad.lat,
                             lng: ad.lng,
                             discountPercentage: ad.discountPercentage || 0,
-                            cpc_value: realisticReward,
-                            bounty_budget: realisticReward > 10 ? 25000 : 0,
-                            bounty_reward: realisticReward * 100,
-                            actionText: ad.actionText,
-                            is_active: true,
-                            merchant: {
-                                id: ad.id,
-                                name: ad.advertiser || "Unknown",
-                                logo: ad.imageUrl || "/placeholder-logo.jpg",
-                                category: actualNeighborhood,
-                                overall_likes: 2500,
-                                overall_dislikes: 120
-                            },
+                            cpc_value: Math.round((ad.reward || 1.5) * 10),
+                            merchant: { category: ad.neighborhood || "الرياض" },
                             distance
                         } as ExtendedCampaign;
                     }).filter(c => c.distance !== undefined && c.discountPercentage >= minDiscount);
@@ -180,11 +137,8 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 setCurrentRadius(Math.max(10, Math.ceil(Math.max(...filtered.map(f => f.distance || 0)))));
                 filtered.sort((a, b) => (a.distance || 0) - (b.distance || 0));
                 setCampaigns(filtered);
-            } catch (err) {
-                console.error("Unexpected error building feed:", err);
-            } finally {
-                setLoading(false);
-            }
+            } catch (err) { console.error(err); } 
+            finally { setLoading(false); }
         };
 
         if (typeof window !== "undefined" && "geolocation" in navigator) {
@@ -203,36 +157,14 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
         fetchLocationAndBuildFeed();
     }, [isActive, fetchLocationAndBuildFeed]);
 
-    // دالة تسجيل النقاط في المحفظة
     const handleRewardEarned = async (campaignId: string, pointsEarned: number) => {
         if (!userSession) return;
         const supabase = createClient();
-        
         try {
-            // 1. نجيب النقاط الحالية
-            const { data: profileData } = await supabase
-                .from('profiles')
-                .select('points')
-                .eq('id', userSession.user.id)
-                .single();
-                
-            const currentPoints = profileData?.points || 0;
-            const newTotal = currentPoints + pointsEarned;
-
-            // 2. نحدث الرصيد الجديد
-            const { error } = await supabase
-                .from('profiles')
-                .update({ points: newTotal })
-                .eq('id', userSession.user.id);
-
-            if (error) {
-                console.error("Error updating points:", error);
-            } else {
-                console.log(`Successfully added ${pointsEarned} points. New total: ${newTotal}`);
-            }
-        } catch (err) {
-            console.error("Error in reward process:", err);
-        }
+            const { data: profileData } = await supabase.from('profiles').select('points').eq('id', userSession.user.id).single();
+            const newTotal = (profileData?.points || 0) + pointsEarned;
+            await supabase.from('profiles').update({ points: newTotal }).eq('id', userSession.user.id);
+        } catch (err) { console.error(err); }
     };
 
     if (!isActive) return null;
@@ -248,9 +180,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                     <div className="flex gap-2 mb-6 overflow-hidden">
                         {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-8 w-20 bg-slate-200 dark:bg-slate-800 rounded-full flex-shrink-0 animate-pulse" />)}
                     </div>
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="w-full h-80 bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse" />
-                    ))}
+                    {[1, 2, 3].map(i => <div key={i} className="w-full h-80 bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse" />)}
                 </div>
             </div>
         );
@@ -262,22 +192,15 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
             const title = normalizeArabic(c.title || "");
             const merchantName = normalizeArabic(c.merchant?.name || "");
             const neighborhood = normalizeArabic(c.merchant?.category || "");
-
-            const isMatch = searchTerms.every(term => 
-                title.includes(term) || merchantName.includes(term) || neighborhood.includes(term)
-            );
+            const isMatch = searchTerms.every(term => title.includes(term) || merchantName.includes(term) || neighborhood.includes(term));
             if (!isMatch) return false;
         }
-
         if (activeChip !== "الكل") {
             const chipMatch = normalizeArabic(activeChip);
             const title = normalizeArabic(c.title || "");
             const merchantName = normalizeArabic(c.merchant?.name || "");
             const neighborhood = normalizeArabic(c.merchant?.category || "");
-
-            if (!title.includes(chipMatch) && !merchantName.includes(chipMatch) && !neighborhood.includes(chipMatch)) {
-                return false;
-            }
+            if (!title.includes(chipMatch) && !merchantName.includes(chipMatch) && !neighborhood.includes(chipMatch)) return false;
         }
         return true;
     }).slice(0, maxAdsLimit);
@@ -286,11 +209,8 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
         <div ref={scrollContainerRef} className="h-full overflow-y-auto pb-24 px-4 bg-slate-50 dark:bg-slate-900 transition-colors relative">
             <AnimatePresence>
                 {isFallback && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                        className="bg-orange-500/90 text-white text-xs px-4 py-2 text-center w-full sticky top-0 z-50 shadow-md"
-                    >
-                        📍 Using default location (Riyadh). Enable GPS for local ads.
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-orange-500/90 text-white text-xs px-4 py-2 text-center w-full sticky top-0 z-50 shadow-md">
+                        📍 يتم استخدام موقع افتراضي. قم بتفعيل الـ GPS لنتائج أدق.
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -300,34 +220,16 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                     <div className="flex items-center gap-3 mb-3">
                         <div className="relative flex-1">
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                            <input
-                                type="text"
-                                placeholder="ابحث عن مطعم، عرض، حي..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full pr-10 pl-4 py-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all text-slate-900 dark:text-white placeholder:text-slate-400 text-right"
-                                dir="rtl"
-                            />
+                            <input type="text" placeholder="ابحث عن مطعم، عرض، حي..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pr-10 pl-4 py-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all text-slate-900 dark:text-white placeholder:text-slate-400 text-right" dir="rtl" />
                         </div>
-                        <button
-                            onClick={fetchLocationAndBuildFeed}
-                            className="w-12 h-12 bg-[#D4AF37] hover:bg-[#B4941F] text-white rounded-2xl flex items-center justify-center transition-colors shadow-md active:scale-95 flex-shrink-0"
-                            title="Refresh Location"
-                        >
+                        <button onClick={fetchLocationAndBuildFeed} className="w-12 h-12 bg-[#D4AF37] hover:bg-[#B4941F] text-white rounded-2xl flex items-center justify-center transition-colors shadow-md active:scale-95 flex-shrink-0" title="Refresh Location">
                             <Target className="w-5 h-5" />
                         </button>
                     </div>
 
                     <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1" dir="rtl">
                         {FILTER_CHIPS.map(chip => (
-                            <button
-                                key={chip}
-                                onClick={() => setActiveChip(chip)}
-                                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors border ${activeChip === chip
-                                    ? "bg-[#D4AF37] text-white border-[#D4AF37] shadow-sm"
-                                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#D4AF37] hover:text-[#D4AF37]"
-                                    }`}
-                            >
+                            <button key={chip} onClick={() => setActiveChip(chip)} className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors border ${activeChip === chip ? "bg-[#D4AF37] text-white border-[#D4AF37] shadow-sm" : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#D4AF37] hover:text-[#D4AF37]"}`}>
                                 {chip}
                             </button>
                         ))}
@@ -335,45 +237,55 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 </div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
-                    <div>
-                        <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                            اكتشف العروض
-                        </h1>
-                        <div className="flex items-center gap-1.5 mt-1 text-[#D4AF37] font-medium text-sm">
-                            <MapPin className="w-4 h-4" />
-                            <span>نعرض المطاعم في نطاق {currentRadius} كم</span>
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">اكتشف العروض</h1>
+                            <div className="flex items-center gap-1.5 mt-1 text-[#D4AF37] font-medium text-sm">
+                                <MapPin className="w-4 h-4" />
+                                <span>نعرض المطاعم في نطاق {currentRadius} كم</span>
+                            </div>
+                        </div>
+                        
+                        {/* زرار التبديل بين القائمة والخريطة */}
+                        <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl">
+                            <button 
+                                onClick={() => setViewMode("map")}
+                                className={`p-2 rounded-lg transition-all ${viewMode === "map" ? "bg-white dark:bg-slate-700 shadow-sm text-[#D4AF37]" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                            >
+                                <Map className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => setViewMode("list")}
+                                className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-white dark:bg-slate-700 shadow-sm text-[#D4AF37]" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                            >
+                                <List className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
                 </motion.div>
 
                 {displayedCampaigns.length > 0 ? (
                     <div className="flex flex-col gap-6">
-                        <AnimatePresence>
-                            {displayedCampaigns.map((campaign, index) => (
-                                <AdCard
-                                    key={campaign.id}
-                                    campaign={campaign}
-                                    index={index}
-                                    onRewardEarned={handleRewardEarned} // مررنا الدالة هنا عشان الكارت يستخدمها
-                                />
-                            ))}
+                        <AnimatePresence mode="wait">
+                            {viewMode === "list" ? (
+                                <motion.div key="list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="flex flex-col gap-6">
+                                    {displayedCampaigns.map((campaign, index) => (
+                                        <AdCard key={campaign.id} campaign={campaign} index={index} onRewardEarned={handleRewardEarned} />
+                                    ))}
+                                </motion.div>
+                            ) : (
+                                <motion.div key="map" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                                    <MapView campaigns={displayedCampaigns} userLocation={userLocation} />
+                                </motion.div>
+                            )}
                         </AnimatePresence>
                     </div>
                 ) : (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="text-center py-16 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm"
-                    >
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-16 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
                         <div className="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6">
                             <MapPin className="w-10 h-10 text-slate-400" />
                         </div>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                            لا توجد عروض قريبة
-                        </h3>
-                        <p className="text-slate-500 max-w-[250px] mx-auto text-sm">
-                            لم نتمكن من العثور على أي عروض نشطة في نطاق {currentRadius} كم من موقعك.
-                        </p>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">لا توجد عروض قريبة</h3>
                     </motion.div>
                 )}
             </div>
