@@ -7,22 +7,24 @@ import AdCard, { ExtendedCampaign } from "@/components/AdCard";
 import { FALLBACK_LOCATION } from "@/lib/mockLocalData";
 import { calculateDistance } from "@/utils/distance";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslations } from "next-intl"; // للترجمة
 
 interface ForYouTabProps {
     isActive: boolean;
 }
 
 export default function ForYouTab({ isActive }: ForYouTabProps) {
+    const t = useTranslations();
     const [campaigns, setCampaigns] = useState<ExtendedCampaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
     const [currentRadius, setCurrentRadius] = useState<number>(5);
     const [isFallback, setIsFallback] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const [maxAdsLimit, setMaxAdsLimit] = useState(1000); // رفعنا الحد الأقصى لـ 1000 إعلان
+    const [maxAdsLimit, setMaxAdsLimit] = useState(1000); 
     const [activeChip, setActiveChip] = useState("الكل");
+    const [userSession, setUserSession] = useState<any>(null); // حفظ السيشن عشان ندي النقاط
 
-    // مرجع للتحكم في السكرول
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const FILTER_CHIPS = ["الكل", "شاورما", "بخاري", "مشويات", "برجر", "قهوة"];
@@ -31,7 +33,6 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
         return text.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').toLowerCase();
     };
 
-    // التمرير لأعلى عند تغيير الفلتر أو البحث
     useEffect(() => {
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -40,7 +41,6 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
 
     const fetchLocationAndBuildFeed = useCallback(async () => {
         setLoading(true);
-
         let maxAds = 1000;
         let minDiscount = 20;
 
@@ -50,7 +50,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 try {
                     const parsed = JSON.parse(savedPrefs);
                     if (parsed.dailyLimit) {
-                        maxAds = Math.max(parsed.dailyLimit, 1000); // نضمن إن العدد يفضل كبير
+                        maxAds = Math.max(parsed.dailyLimit, 1000);
                         setMaxAdsLimit(maxAds);
                     }
                     if (parsed.minDiscount !== undefined) minDiscount = parsed.minDiscount;
@@ -65,6 +65,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
+                setUserSession(session); // نحفظ السيشن
                 const { data } = await supabase
                     .from('profiles')
                     .select('interests')
@@ -97,16 +98,17 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
 
                 let matches = dbAds.map((ad: any) => {
                     const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
-
-                    // تحويل النقاط لرقم صحيح وأكثر واقعية (مثال: 1.5 تصبح 15)
                     const rawReward = ad.reward || 1.5;
                     const realisticReward = Math.round(rawReward * 10);
+
+                    // حل مشكلة الحي هنا: بنحاول نقرا اسم الحي من كذا مكان
+                    const actualNeighborhood = ad.neighborhood || ad.district || ad.city || "الرياض";
 
                     const merchant = {
                         id: ad.id,
                         name: ad.advertiser || "Unknown",
                         logo: ad.imageUrl || "/placeholder-logo.jpg",
-                        category: ad.category || ad.neighborhood || "General", // دمجنا الحي هنا عشان الفلترة
+                        category: actualNeighborhood, // دلوقتي category شايل اسم الحي الفعلي
                         overall_likes: Math.floor(Math.random() * 5000) + 1000,
                         overall_dislikes: Math.floor(Math.random() * 300) + 50
                     };
@@ -119,18 +121,14 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                         lat: ad.lat,
                         lng: ad.lng,
                         discountPercentage: ad.discountPercentage || 0,
-                        cpc_value: realisticReward, // النقاط الجديدة
+                        cpc_value: realisticReward,
                         bounty_budget: realisticReward > 10 ? 25000 : 0,
                         bounty_reward: realisticReward * 100,
                         actionText: ad.actionText,
                         is_active: true
                     };
 
-                    return {
-                        ...campaign,
-                        merchant,
-                        distance
-                    } as ExtendedCampaign;
+                    return { ...campaign, merchant, distance } as ExtendedCampaign;
                 }).filter(c => c.distance !== undefined && c.distance <= radius && c.discountPercentage >= minDiscount);
 
                 if (userInterests.length > 0) {
@@ -147,11 +145,11 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 filtered = matches;
 
                 if (filtered.length === 0) {
-                    // Safety net
                     filtered = dbAds.map((ad: any) => {
                         const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
                         const rawReward = ad.reward || 1.5;
                         const realisticReward = Math.round(rawReward * 10);
+                        const actualNeighborhood = ad.neighborhood || ad.district || ad.city || "الرياض";
 
                         return {
                             id: `c_${ad.id}`,
@@ -170,7 +168,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                                 id: ad.id,
                                 name: ad.advertiser || "Unknown",
                                 logo: ad.imageUrl || "/placeholder-logo.jpg",
-                                category: ad.category || ad.neighborhood || "General",
+                                category: actualNeighborhood,
                                 overall_likes: 2500,
                                 overall_dislikes: 120
                             },
@@ -191,17 +189,11 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
 
         if (typeof window !== "undefined" && "geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    buildFeed(position.coords.latitude, position.coords.longitude, false);
-                },
-                (error) => {
-                    console.warn("GPS error, using fallback location:", error);
-                    buildFeed(FALLBACK_LOCATION.lat, FALLBACK_LOCATION.lng, true);
-                },
+                (position) => { buildFeed(position.coords.latitude, position.coords.longitude, false); },
+                (error) => { buildFeed(FALLBACK_LOCATION.lat, FALLBACK_LOCATION.lng, true); },
                 { timeout: 10000, maximumAge: 60000 }
             );
         } else {
-            console.warn("Geolocation not supported, using fallback location.");
             buildFeed(FALLBACK_LOCATION.lat, FALLBACK_LOCATION.lng, true);
         }
     }, []);
@@ -210,6 +202,38 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
         if (!isActive) return;
         fetchLocationAndBuildFeed();
     }, [isActive, fetchLocationAndBuildFeed]);
+
+    // دالة تسجيل النقاط في المحفظة
+    const handleRewardEarned = async (campaignId: string, pointsEarned: number) => {
+        if (!userSession) return;
+        const supabase = createClient();
+        
+        try {
+            // 1. نجيب النقاط الحالية
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('points')
+                .eq('id', userSession.user.id)
+                .single();
+                
+            const currentPoints = profileData?.points || 0;
+            const newTotal = currentPoints + pointsEarned;
+
+            // 2. نحدث الرصيد الجديد
+            const { error } = await supabase
+                .from('profiles')
+                .update({ points: newTotal })
+                .eq('id', userSession.user.id);
+
+            if (error) {
+                console.error("Error updating points:", error);
+            } else {
+                console.log(`Successfully added ${pointsEarned} points. New total: ${newTotal}`);
+            }
+        } catch (err) {
+            console.error("Error in reward process:", err);
+        }
+    };
 
     if (!isActive) return null;
 
@@ -233,7 +257,6 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
     }
 
     const displayedCampaigns = campaigns.filter(c => {
-        // البحث الذكي: بيفصل الكلمات ويدور في الاسم والحي
         if (searchQuery) {
             const searchTerms = normalizeArabic(searchQuery).split(" ").filter(term => term.length > 0);
             const title = normalizeArabic(c.title || "");
@@ -246,7 +269,6 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
             if (!isMatch) return false;
         }
 
-        // فلتر شريط التصنيفات (شاورما، بخاري، إلخ)
         if (activeChip !== "الكل") {
             const chipMatch = normalizeArabic(activeChip);
             const title = normalizeArabic(c.title || "");
@@ -265,9 +287,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
             <AnimatePresence>
                 {isFallback && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                         className="bg-orange-500/90 text-white text-xs px-4 py-2 text-center w-full sticky top-0 z-50 shadow-md"
                     >
                         📍 Using default location (Riyadh). Enable GPS for local ads.
@@ -334,6 +354,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                                     key={campaign.id}
                                     campaign={campaign}
                                     index={index}
+                                    onRewardEarned={handleRewardEarned} // مررنا الدالة هنا عشان الكارت يستخدمها
                                 />
                             ))}
                         </AnimatePresence>
