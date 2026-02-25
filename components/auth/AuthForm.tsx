@@ -89,14 +89,13 @@ export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
 
                 // معالجة "تذكرني دائماً"
                 if (!rememberMe) {
-                    // الجلسة تنتهي بإغلاق المتصفح (ممكن نربطها في الـ Layout لاحقاً)
                     sessionStorage.setItem('temp_session_safy', 'true');
                 } else {
                     sessionStorage.removeItem('temp_session_safy');
                 }
 
-                // توجيه المستخدم لصفحة التطبيق
-                window.location.href = "/ar/app";
+                // التعديل هنا: التوجيه للرئيسية بدل /ar/app
+                window.location.href = "/";
             }
         } catch (err: any) {
             setError(err.message || "حدث خطأ غير متوقع، حاول مرة أخرى.");
