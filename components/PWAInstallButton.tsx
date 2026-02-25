@@ -8,9 +8,11 @@ const PWAInstallButton = () => {
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(true); // حالة للتحكم في ظهور الزرار
 
   useEffect(() => {
     setIsMounted(true);
+    
     // نتأكد إن التطبيق مش متسطب أصلاً
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       setIsStandalone(true);
@@ -28,12 +30,26 @@ const PWAInstallButton = () => {
     };
 
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+
+    // مؤقت زمني لإخفاء الزرار بعد 10 ثواني
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+    }, 10000);
+
+    // تنظيف الأحداث والمؤقت لما المكون يتشال
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      clearTimeout(timer);
+    };
   }, []);
 
-  if (!isMounted || isStandalone) return null;
+  // لو مش جاهز، أو متسطب، أو عدى 10 ثواني/تم الضغط عليه -> ما تظهرش حاجة
+  if (!isMounted || isStandalone || !isVisible) return null;
 
   const handleInstall = async () => {
+    // إخفاء الزرار فوراً بعد النقرة الأولى
+    setIsVisible(false);
+
     if (deferredPrompt) {
       // لو أندرويد وجاهز، نظهرله رسالة التثبيت الرسمية
       deferredPrompt.prompt();
