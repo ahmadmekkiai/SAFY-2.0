@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, Phone, ArrowRight, Loader2, KeyRound } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthFormProps {
     mode: "login" | "signup";
@@ -12,322 +11,250 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ mode, onToggleMode }: AuthFormProps) {
-    const router = useRouter();
     const supabase = createClient();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
+    // States
+    const [identifier, setIdentifier] = useState(""); // للإيميل أو الجوال
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [fullName, setFullName] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
 
-    const validateForm = () => {
-        if (!email) {
-            setError("Email is required");
-            return false;
-        }
-        if (!password) {
-            setError("Password is required");
-            return false;
-        }
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters");
-            return false;
-        }
-        if (mode === "signup") {
-            if (!fullName) {
-                setError("Full name is required");
-                return false;
-            }
-            if (password !== confirmPassword) {
-                setError("Passwords do not match");
-                return false;
-            }
-        }
-        return true;
-    };
+    // States للـ OTP و تذكرني
+    const [rememberMe, setRememberMe] = useState(false);
+    const [isOtpStep, setIsOtpStep] = useState(false); // هل نحن في خطوة إدخال الكود؟
+    const [otpCode, setOtpCode] = useState("");
+    const [resolvedEmail, setResolvedEmail] = useState(""); // لحفظ الإيميل اللي هنبعتله الكود
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError("");
-
-        if (!validateForm()) return;
-
         setLoading(true);
+        setError(null);
+        setSuccess(null);
 
         try {
             if (mode === "signup") {
+                // 1. إنشاء حساب جديد
                 const { data, error: signUpError } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
                         data: {
                             full_name: fullName,
+                            phone: phone,
                         },
                     },
                 });
 
-                if (signUpError) {
-                    if (signUpError.message.includes("already registered")) {
-                        setError("User already exists");
-                    } else {
-                        setError(signUpError.message);
-                    }
-                    setLoading(false);
-                    return;
-                }
+                if (signUpError) throw signUpError;
 
                 if (data.user) {
-                    // Force clean reload to ensure middleware picks up new locale context
-                    window.location.href = "/en";
+                    await supabase.from("profiles").upsert({
+                        id: data.user.id,
+                        email: email,
+                        full_name: fullName,
+                        phone: phone,
+                    });
                 }
-            } else {
-                const { data, error: signInError } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
+                setSuccess("تم إنشاء الحساب بنجاح! يرجى مراجعة بريدك الإلكتروني للتفعيل.");
+                
+            } else if (mode === "login" && !isOtpStep) {
+                // 2. طلب كود OTP للدخول
+                let loginEmail = identifier;
+
+                // لو المستخدم كتب رقم موبايل (مفيش علامة @)
+                if (!identifier.includes("@")) {
+                    const { data: profileData, error: profileError } = await supabase
+                        .from("profiles")
+                        .select("email")
+                        .eq("phone", identifier)
+                        .single();
+
+                    if (profileError || !profileData?.email) {
+                        throw new Error("لم نتمكن من العثور على حساب مرتبط برقم الجوال هذا.");
+                    }
+                    loginEmail = profileData.email;
+                }
+
+                setResolvedEmail(loginEmail);
+
+                // إرسال OTP عبر Supabase
+                const { error: otpError } = await supabase.auth.signInWithOtp({
+                    email: loginEmail,
+                    options: {
+                        shouldCreateUser: false, // منع إنشاء حساب جديد لو الإيميل مش موجود
+                    }
                 });
 
-                if (signInError) {
-                    setError("Invalid email or password");
-                    setLoading(false);
-                    return;
+                if (otpError) throw otpError;
+
+                setSuccess(`تم إرسال كود التحقق (OTP) إلى: ${loginEmail}`);
+                setIsOtpStep(true); // الانتقال لشاشة إدخال الكود
+
+            } else if (mode === "login" && isOtpStep) {
+                // 3. التحقق من كود OTP وتسجيل الدخول
+                const { error: verifyError, data } = await supabase.auth.verifyOtp({
+                    email: resolvedEmail,
+                    token: otpCode,
+                    type: 'email', // نوع التحقق
+                });
+
+                if (verifyError) throw verifyError;
+
+                // معالجة "تذكرني دائماً"
+                if (!rememberMe) {
+                    // إذا لم يقم بتفعيلها، نقوم بحفظ متغير مؤقت في الجلسة الحالية
+                    // (يمكن استخدام هذا المتغير لاحقاً في الـ Layout لتسجيل خروجه عند إغلاق المتصفح)
+                    sessionStorage.setItem('temp_session_safy', 'true');
+                } else {
+                    sessionStorage.removeItem('temp_session_safy');
                 }
 
-                if (data.user) {
-                    // Force clean reload to ensure middleware picks up new locale context
-                    window.location.href = "/en";
-                }
+                window.location.href = "/ar/app";
             }
-        } catch (err) {
-            setError("An unexpected error occurred");
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // ADMIN/DEMO MODE: Anonymous sign-in to bypass email rate limits
-    const handleDemoMode = async () => {
-        setLoading(true);
-        setError("");
-
-        try {
-            const { data, error: anonError } = await supabase.auth.signInAnonymously();
-
-            if (anonError) {
-                setError("Failed to enter demo mode");
-                console.error(anonError);
-                setLoading(false);
-                return;
-            }
-
-            if (data.user) {
-                // Hard redirect to For You tab
-                window.location.href = "/en/for-you";
-            }
-        } catch (err) {
-            setError("An unexpected error occurred");
-            console.error(err);
+        } catch (err: any) {
+            setError(err.message || "حدث خطأ غير متوقع، حاول مرة أخرى.");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <motion.div
+        <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="w-full max-w-md"
+            className="w-full max-w-md bg-white/10 dark:bg-slate-900/50 backdrop-blur-xl border border-white/20 dark:border-slate-700 p-8 rounded-3xl shadow-2xl relative z-10"
+            dir="rtl"
         >
-            {/* Glassmorphism Card */}
-            <div className="relative backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-3xl p-8 border border-white/20 dark:border-white/10 shadow-2xl">
-                {/* SAFY Branding */}
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-black text-white mb-2 flex justify-center items-center gap-1">
-                        <span>SA</span>
-                        <motion.span
-                            className="relative inline-block"
-                            animate={{
-                                textShadow: [
-                                    "0 0 20px rgba(212, 175, 55, 0.8)",
-                                    "0 0 40px rgba(212, 175, 55, 1)",
-                                    "0 0 20px rgba(212, 175, 55, 0.8)",
-                                ],
-                            }}
-                            transition={{
-                                duration: 2,
-                                repeat: Infinity,
-                                ease: "easeInOut",
-                            }}
-                        >
-                            <span className="text-[#D4AF37]">F</span>
-                        </motion.span>
-                        <span>Y</span>
-                    </h1>
-                    <p className="text-blue-200 dark:text-blue-300 text-sm">
-                        Your Time, Your Rewards
-                    </p>
-                </div>
-
-                {/* Title */}
-                <h2 className="text-2xl font-bold text-white mb-6 text-center">
-                    {mode === "login" ? "Welcome Back" : "Welcome to SAFY"}
+            <div className="text-center mb-8">
+                <h2 className="text-3xl font-extrabold text-white mb-2">
+                    {mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
                 </h2>
+                <p className="text-blue-100 dark:text-slate-300 text-sm">
+                    {mode === "login" 
+                        ? (isOtpStep ? "أدخل كود التحقق المرسل إليك" : "مرحباً بعودتك إلى SAFY")
+                        : "انضم إلينا وابدأ في كسب النقاط اليوم"}
+                </p>
+            </div>
 
-                {/* Error Message */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <AnimatePresence mode="popLayout">
+                    {mode === "signup" && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-4"
+                        >
+                            <div>
+                                <label className="block text-sm font-medium text-white mb-1">الاسم الكامل</label>
+                                <div className="relative">
+                                    <User className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="أحمد مكي" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-white mb-1">البريد الإلكتروني</label>
+                                <div className="relative">
+                                    <Mail className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="ahmed@example.com" dir="ltr" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-white mb-1">رقم الجوال</label>
+                                <div className="relative">
+                                    <Phone className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="05XXXXXXXX" dir="ltr" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-white mb-1">كلمة المرور (اختياري للرجوع)</label>
+                                <div className="relative">
+                                    <Lock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="••••••••" dir="ltr" />
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {mode === "login" && !isOtpStep && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-white mb-1">البريد الإلكتروني أو رقم الجوال</label>
+                                <div className="relative">
+                                    <User className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent" placeholder="الايميل أو 05XXXXXXXX" dir="ltr" />
+                                </div>
+                            </div>
+                            
+                            {/* زر تذكرني */}
+                            <div className="flex items-center gap-2 mt-2">
+                                <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] accent-[#D4AF37] cursor-pointer" />
+                                <label htmlFor="rememberMe" className="text-sm text-white cursor-pointer select-none">
+                                    تذكرني دائماً
+                                </label>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {mode === "login" && isOtpStep && (
+                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-white mb-1">كود التحقق (OTP)</label>
+                                <div className="relative">
+                                    <KeyRound className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input type="text" required value={otpCode} onChange={(e) => setOtpCode(e.target.value)} className="w-full bg-white/90 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl py-3 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] border-transparent tracking-[0.5em] font-bold text-center" placeholder="123456" dir="ltr" maxLength={6} />
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {error && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mb-4 p-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-200 text-sm text-center"
-                    >
+                    <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-100 text-sm font-medium">
                         {error}
-                    </motion.div>
+                    </div>
                 )}
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Full Name (Signup only) */}
-                    {mode === "signup" && (
-                        <div>
-                            <label className="block text-sm font-medium text-blue-200 dark:text-blue-300 mb-2">
-                                Full Name
-                            </label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-300/50" />
-                                <input
-                                    type="text"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 transition-all"
-                                    placeholder="Full Name"
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Email */}
-                    <div>
-                        <label className="block text-sm font-medium text-blue-200 dark:text-blue-300 mb-2">
-                            Email
-                        </label>
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-300/50" />
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 transition-all"
-                                placeholder="Email"
-                                disabled={loading}
-                            />
-                        </div>
+                {success && (
+                    <div className="p-3 rounded-lg bg-green-500/20 border border-green-500/50 text-green-100 text-sm font-medium">
+                        {success}
                     </div>
+                )}
 
-                    {/* Password */}
-                    <div>
-                        <label className="block text-sm font-medium text-blue-200 dark:text-blue-300 mb-2">
-                            Password
-                        </label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-300/50" />
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-11 pr-11 py-3 rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 transition-all"
-                                placeholder="Password"
-                                disabled={loading}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300/50 hover:text-blue-300 transition-colors"
-                            >
-                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Confirm Password (Signup only) */}
-                    {mode === "signup" && (
-                        <div>
-                            <label className="block text-sm font-medium text-blue-200 dark:text-blue-300 mb-2">
-                                Confirm Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-300/50" />
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 transition-all"
-                                    placeholder="Confirm Password"
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-yellow-600 text-white font-bold hover:from-yellow-600 hover:to-[#D4AF37] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                                />
-                                Loading...
-                            </span>
-                        ) : mode === "login" ? (
-                            "Sign In"
-                        ) : (
-                            "Create Account"
-                        )}
-                    </button>
-                </form>
-
-                {/* Toggle Mode */}
-                <div className="mt-6 text-center">
-                    <p className="text-blue-200 dark:text-blue-300 text-sm">
-                        {mode === "login" ? "Don't have an account?" : "Already have an account?"}
-                    </p>
-                    <button
-                        onClick={onToggleMode}
-                        className="mt-2 text-[#D4AF37] font-semibold hover:text-yellow-500 transition-colors"
-                    >
-                        {mode === "login" ? "Sign Up" : "Login"}
-                    </button>
-                </div>
-
-                {/* Divider */}
-                <div className="mt-8 mb-6 flex items-center gap-4">
-                    <div className="flex-1 h-px bg-white/20"></div>
-                    <span className="text-blue-200 dark:text-blue-300 text-sm">OR</span>
-                    <div className="flex-1 h-px bg-white/20"></div>
-                </div>
-
-                {/* Admin/Demo Mode Button */}
                 <button
-                    onClick={handleDemoMode}
+                    type="submit"
                     disabled={loading}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 text-white font-bold hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-3.5 mt-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-yellow-600 text-white font-bold text-lg hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:scale-100"
                 >
-                    <span className="text-xl">🎭</span>
-                    Enter Admin/Demo Mode
+                    {loading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                        <>
+                            {mode === "signup" ? "إنشاء حساب" : (isOtpStep ? "تأكيد الكود والدخول" : "إرسال كود التحقق")}
+                            <ArrowRight className="w-5 h-5 rotate-180" />
+                        </>
+                    )}
                 </button>
-                <p className="mt-2 text-center text-xs text-blue-200/70 dark:text-blue-300/70">
-                    Bypass email limits • Test all features • Anonymous session
-                </p>
+            </form>
+
+            <div className="mt-6 text-center">
+                <button
+                    onClick={() => {
+                        onToggleMode();
+                        setIsOtpStep(false);
+                        setError(null);
+                        setSuccess(null);
+                    }}
+                    className="text-blue-100 dark:text-slate-300 hover:text-white text-sm font-medium transition-colors"
+                >
+                    {mode === "login"
+                        ? "ليس لديك حساب؟ قم بالتسجيل الآن"
+                        : "لديك حساب بالفعل؟ تسجيل الدخول"}
+                </button>
             </div>
         </motion.div>
     );
