@@ -340,4 +340,76 @@ export default function ProfileTab({ isActive }: ProfileTabProps) {
                             <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar" dir="rtl">
                                 {searchQuery ? (displayCategories.length > 0 ? displayCategories.map(category => renderCategory(category, 0)) : <div className="text-center py-8 text-gray-500">لا يوجد نتائج</div>) : INTEREST_TAXONOMY.map(category => renderCategory(category, 0))}
                             </div>
-                            <button onClick={handleSaveInterests} className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-
+                            <button onClick={handleSaveInterests} className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-yellow-600 text-white font-bold hover:scale-[1.02] transition-transform shadow-lg">حفظ التغييرات</button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap gap-2" dir="rtl">
+                            {profile?.interests && profile.interests.length > 0 ? (
+                                profile.interests.map((interestId) => {
+                                    const category = getCategoryInfo(interestId);
+                                    if (!category) return null;
+                                    return (
+                                        <div key={interestId} className="px-3 py-2 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 text-sm font-bold flex items-center gap-2">
+                                            <span>{category.icon}</span><span>{category.label}</span>
+                                        </div>
+                                    );
+                                })
+                            ) : (<p className="text-gray-500 text-sm">لم يتم تحديد اهتمامات</p>)}
+                        </div>
+                    )}
+                </motion.div>
+
+                {/* Account Settings */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="relative backdrop-blur-xl bg-white/40 dark:bg-white/5 rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Settings className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">إعدادات الحساب</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {/* زر فتح مودال إكمال البيانات */}
+                        <button onClick={() => setShowProfileModal(true)} className="w-full p-4 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 transition-all text-left flex items-center justify-between" dir="rtl">
+                            <div className="flex items-center gap-3">
+                                <User className="w-5 h-5 text-[#D4AF37]" />
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">إكمال بيانات الحساب</span>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 rotate-180" />
+                        </button>
+
+                        {/* زر فتح مودال اللغة */}
+                        <button onClick={() => setShowLanguageModal(true)} className="w-full p-4 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 transition-all text-left flex items-center justify-between" dir="rtl">
+                            <div className="flex items-center gap-3">
+                                <Globe className="w-5 h-5 text-blue-500" />
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">لغة التطبيق (Language)</span>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 rotate-180" />
+                        </button>
+
+                        {/* زر تبديل الدارك/لايت مود */}
+                        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="w-full p-4 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 transition-all text-left flex items-center justify-between" dir="rtl">
+                            <div className="flex items-center gap-3">
+                                {theme === 'dark' ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {theme === 'dark' ? 'الوضع المضيء' : 'الوضع الليلي'}
+                                </span>
+                            </div>
+                        </button>
+                    </div>
+                </motion.div>
+
+                {/* Buttons */}
+                <div className="grid grid-cols-2 gap-4">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}><NotificationTester /></motion.div>
+                    <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} onClick={handleLogout} className="w-full py-4 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-bold hover:bg-red-100 dark:hover:bg-red-500/20 transition-all flex items-center justify-center gap-2 border border-red-500/20">
+                        <LogOut className="w-5 h-5" /> تسجيل الخروج
+                    </motion.button>
+                </div>
+            </div>
+            
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 10px; }
+            `}</style>
+        </div>
+    );
+}
