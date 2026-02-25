@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, MapPin, Compass, Search, Target } from "lucide-react";
+import { MapPin, Search, Target } from "lucide-react";
 import AdCard, { ExtendedCampaign } from "@/components/AdCard";
 import { FALLBACK_LOCATION } from "@/lib/mockLocalData";
 import { calculateDistance } from "@/utils/distance";
@@ -16,11 +16,14 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
     const [campaigns, setCampaigns] = useState<ExtendedCampaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
-    const [currentRadius, setCurrentRadius] = useState<number>(5); // start with 5km
+    const [currentRadius, setCurrentRadius] = useState<number>(5);
     const [isFallback, setIsFallback] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const [maxAdsLimit, setMaxAdsLimit] = useState(100);
+    const [maxAdsLimit, setMaxAdsLimit] = useState(1000); // رفعنا الحد الأقصى لـ 1000 إعلان
     const [activeChip, setActiveChip] = useState("الكل");
+
+    // مرجع للتحكم في السكرول
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const FILTER_CHIPS = ["الكل", "شاورما", "بخاري", "مشويات", "برجر", "قهوة"];
 
@@ -28,13 +31,18 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
         return text.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').toLowerCase();
     };
 
-    // Fetch GPS and calculate feed
+    // التمرير لأعلى عند تغيير الفلتر أو البحث
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [activeChip, searchQuery]);
+
     const fetchLocationAndBuildFeed = useCallback(async () => {
         setLoading(true);
 
-        // Fetch User Ad Preferences from localStorage
-        let maxAds = 100; // default
-        let minDiscount = 20; // default
+        let maxAds = 1000;
+        let minDiscount = 20;
 
         if (typeof window !== "undefined") {
             const savedPrefs = localStorage.getItem('safy_ad_prefs');
@@ -42,8 +50,8 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 try {
                     const parsed = JSON.parse(savedPrefs);
                     if (parsed.dailyLimit) {
-                        maxAds = parsed.dailyLimit;
-                        setMaxAdsLimit(parsed.dailyLimit);
+                        maxAds = Math.max(parsed.dailyLimit, 1000); // نضمن إن العدد يفضل كبير
+                        setMaxAdsLimit(maxAds);
                     }
                     if (parsed.minDiscount !== undefined) minDiscount = parsed.minDiscount;
                 } catch (e) {
@@ -52,7 +60,6 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
             }
         }
 
-        // 1. Fetch User Interests from Supabase
         const supabase = createClient();
         let userInterests: string[] = [];
         try {
@@ -75,11 +82,10 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
             setUserLocation({ lat, lng });
             setIsFallback(fallback);
 
-            let radius = 1000; // Large arbitrary radius to capture all mock ads
+            let radius = 1000;
             let filtered: ExtendedCampaign[] = [];
 
             try {
-                // Fetch from Supabase
                 const { data: adsData, error } = await supabase.from('local_ads').select('*');
                 if (error) {
                     console.error("Error fetching local ads:", error);
@@ -92,11 +98,15 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 let matches = dbAds.map((ad: any) => {
                     const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
 
+                    // تحويل النقاط لرقم صحيح وأكثر واقعية (مثال: 1.5 تصبح 15)
+                    const rawReward = ad.reward || 1.5;
+                    const realisticReward = Math.round(rawReward * 10);
+
                     const merchant = {
                         id: ad.id,
                         name: ad.advertiser || "Unknown",
                         logo: ad.imageUrl || "/placeholder-logo.jpg",
-                        category: ad.category || "General",
+                        category: ad.category || ad.neighborhood || "General", // دمجنا الحي هنا عشان الفلترة
                         overall_likes: Math.floor(Math.random() * 5000) + 1000,
                         overall_dislikes: Math.floor(Math.random() * 300) + 50
                     };
@@ -109,9 +119,9 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                         lat: ad.lat,
                         lng: ad.lng,
                         discountPercentage: ad.discountPercentage || 0,
-                        cpc_value: ad.reward || 0,
-                        bounty_budget: (ad.reward || 0) > 1 ? 25000 : 0,
-                        bounty_reward: (ad.reward || 0) * 100,
+                        cpc_value: realisticReward, // النقاط الجديدة
+                        bounty_budget: realisticReward > 10 ? 25000 : 0,
+                        bounty_reward: realisticReward * 100,
                         actionText: ad.actionText,
                         is_active: true
                     };
@@ -123,14 +133,12 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                     } as ExtendedCampaign;
                 }).filter(c => c.distance !== undefined && c.distance <= radius && c.discountPercentage >= minDiscount);
 
-                // Filter by interests if user has any selected
                 if (userInterests.length > 0) {
                     const interestMatches = matches.filter(c =>
                         userInterests.includes(c.merchant.category) ||
                         userInterests.some(i => c.merchant.category.startsWith(i)) ||
                         userInterests.some(i => i.startsWith(c.merchant.category))
                     );
-                    // To avoid empty screen, only apply strict interest filter if results exist
                     if (interestMatches.length > 0) {
                         matches = interestMatches;
                     }
@@ -138,10 +146,13 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
 
                 filtered = matches;
 
-                // If absolutely nothing despite 1000km and fallback interest logic, just try returning everything (Safety net)
                 if (filtered.length === 0) {
+                    // Safety net
                     filtered = dbAds.map((ad: any) => {
                         const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
+                        const rawReward = ad.reward || 1.5;
+                        const realisticReward = Math.round(rawReward * 10);
+
                         return {
                             id: `c_${ad.id}`,
                             merchant_id: ad.id,
@@ -150,16 +161,16 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                             lat: ad.lat,
                             lng: ad.lng,
                             discountPercentage: ad.discountPercentage || 0,
-                            cpc_value: ad.reward || 0,
-                            bounty_budget: (ad.reward || 0) > 1 ? 25000 : 0,
-                            bounty_reward: (ad.reward || 0) * 100,
+                            cpc_value: realisticReward,
+                            bounty_budget: realisticReward > 10 ? 25000 : 0,
+                            bounty_reward: realisticReward * 100,
                             actionText: ad.actionText,
                             is_active: true,
                             merchant: {
                                 id: ad.id,
                                 name: ad.advertiser || "Unknown",
                                 logo: ad.imageUrl || "/placeholder-logo.jpg",
-                                category: ad.category || "General",
+                                category: ad.category || ad.neighborhood || "General",
                                 overall_likes: 2500,
                                 overall_dislikes: 120
                             },
@@ -169,11 +180,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                 }
 
                 setCurrentRadius(Math.max(10, Math.ceil(Math.max(...filtered.map(f => f.distance || 0)))));
-
-                // Strict sort by closest distance
                 filtered.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-
-                // Do not slice here to allow global search on all fetched campaigns. We'll slice dynamically in render.
                 setCampaigns(filtered);
             } catch (err) {
                 console.error("Unexpected error building feed:", err);
@@ -226,17 +233,27 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
     }
 
     const displayedCampaigns = campaigns.filter(c => {
-        // Core Text Search Filter
+        // البحث الذكي: بيفصل الكلمات ويدور في الاسم والحي
         if (searchQuery) {
-            const q = normalizeArabic(searchQuery);
-            if (!normalizeArabic(c.title).includes(q) && !normalizeArabic(c.merchant.name).includes(q)) {
-                return false;
-            }
+            const searchTerms = normalizeArabic(searchQuery).split(" ").filter(term => term.length > 0);
+            const title = normalizeArabic(c.title || "");
+            const merchantName = normalizeArabic(c.merchant?.name || "");
+            const neighborhood = normalizeArabic(c.merchant?.category || "");
+
+            const isMatch = searchTerms.every(term => 
+                title.includes(term) || merchantName.includes(term) || neighborhood.includes(term)
+            );
+            if (!isMatch) return false;
         }
-        // Sub-Category Chip Filter
+
+        // فلتر شريط التصنيفات (شاورما، بخاري، إلخ)
         if (activeChip !== "الكل") {
             const chipMatch = normalizeArabic(activeChip);
-            if (!normalizeArabic(c.title).includes(chipMatch) && !normalizeArabic(c.merchant.name).includes(chipMatch)) {
+            const title = normalizeArabic(c.title || "");
+            const merchantName = normalizeArabic(c.merchant?.name || "");
+            const neighborhood = normalizeArabic(c.merchant?.category || "");
+
+            if (!title.includes(chipMatch) && !merchantName.includes(chipMatch) && !neighborhood.includes(chipMatch)) {
                 return false;
             }
         }
@@ -244,9 +261,7 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
     }).slice(0, maxAdsLimit);
 
     return (
-        <div className="h-full overflow-y-auto pb-24 px-4 bg-slate-50 dark:bg-slate-900 transition-colors relative">
-
-            {/* Fallback Banner */}
+        <div ref={scrollContainerRef} className="h-full overflow-y-auto pb-24 px-4 bg-slate-50 dark:bg-slate-900 transition-colors relative">
             <AnimatePresence>
                 {isFallback && (
                     <motion.div
@@ -261,8 +276,6 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
             </AnimatePresence>
 
             <div className="max-w-xl mx-auto space-y-6 pt-6 relative">
-
-                {/* Sticky Universal Search Bar & GPS Button */}
                 <div className="sticky top-0 z-40 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-lg pt-2 pb-3 -mx-4 px-4 shadow-sm border-b border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="relative flex-1">
@@ -278,14 +291,13 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                         </div>
                         <button
                             onClick={fetchLocationAndBuildFeed}
-                            className="w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex items-center justify-center transition-colors shadow-md active:scale-95 flex-shrink-0"
+                            className="w-12 h-12 bg-[#D4AF37] hover:bg-[#B4941F] text-white rounded-2xl flex items-center justify-center transition-colors shadow-md active:scale-95 flex-shrink-0"
                             title="Refresh Location"
                         >
                             <Target className="w-5 h-5" />
                         </button>
                     </div>
 
-                    {/* Floating Sub-Category Chips */}
                     <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1" dir="rtl">
                         {FILTER_CHIPS.map(chip => (
                             <button
@@ -302,20 +314,18 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                     </div>
                 </div>
 
-                {/* Header */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
                     <div>
                         <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                            Local Feed
+                            اكتشف العروض
                         </h1>
-                        <div className="flex items-center gap-1.5 mt-1 text-blue-600 dark:text-blue-400 font-medium text-sm">
+                        <div className="flex items-center gap-1.5 mt-1 text-[#D4AF37] font-medium text-sm">
                             <MapPin className="w-4 h-4" />
-                            <span>Showing deals within {currentRadius}km</span>
+                            <span>نعرض المطاعم في نطاق {currentRadius} كم</span>
                         </div>
                     </div>
                 </motion.div>
 
-                {/* Deal Cards Grid */}
                 {displayedCampaigns.length > 0 ? (
                     <div className="flex flex-col gap-6">
                         <AnimatePresence>
@@ -329,7 +339,6 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                         </AnimatePresence>
                     </div>
                 ) : (
-                    // Empty State (Should rarely hit due to new logic, but kept for absolute safety)
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -339,10 +348,10 @@ export default function ForYouTab({ isActive }: ForYouTabProps) {
                             <MapPin className="w-10 h-10 text-slate-400" />
                         </div>
                         <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                            No deals nearby
+                            لا توجد عروض قريبة
                         </h3>
                         <p className="text-slate-500 max-w-[250px] mx-auto text-sm">
-                            We couldn't find any active deals within {currentRadius}km of your location.
+                            لم نتمكن من العثور على أي عروض نشطة في نطاق {currentRadius} كم من موقعك.
                         </p>
                     </motion.div>
                 )}
