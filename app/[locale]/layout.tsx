@@ -1,6 +1,7 @@
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import PWAInstallButton from '@/components/PWAInstallButton'; // سطر استدعاء الزرار
 
 const locales = ['en', 'ar'];
 
@@ -30,6 +31,7 @@ export default async function LocaleLayout({
         <NextIntlClientProvider locale={locale} messages={messages}>
             <div lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'} className="h-full">
                 {children}
+                <PWAInstallButton /> {/* الزرار هيظهر هنا فوق كل المحتوى */}
             </div>
         </NextIntlClientProvider>
     );
