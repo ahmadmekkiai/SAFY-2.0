@@ -1,0 +1,41 @@
+{
+    "auth": {
+        "login": "تسجيل الدخول",
+        "signup": "إنشاء حساب",
+        "email": "البريد الإلكتروني",
+        "password": "كلمة المرور",
+        "fullName": "الاسم الكامل",
+        "confirmPassword": "تأكيد كلمة المرور",
+        "forgotPassword": "نسيت كلمة المرور؟",
+        "noAccount": "ليس لديك حساب؟",
+        "hasAccount": "لديك حساب بالفعل؟",
+        "loginButton": "دخول",
+        "signupButton": "إنشاء حساب",
+        "logout": "تسجيل الخروج",
+        "welcome": "مرحباً بك في SAFY",
+        "welcomeBack": "مرحباً بعودتك",
+        "subtitle": "وقتك، مكافآتك",
+        "loading": "جاري التحميل...",
+        "errors": {
+            "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+            "userExists": "المستخدم موجود بالفعل",
+            "weakPassword": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
+            "emailRequired": "البريد الإلكتروني مطلوب",
+            "passwordRequired": "كلمة المرور مطلوبة",
+            "passwordMismatch": "كلمات المرور غير متطابقة",
+            "nameRequired": "الاسم الكامل مطلوب"
+        }
+    },
+    "common": {
+        "loading": "جاري التحميل...",
+        "error": "خطأ",
+        "success": "نجح"
+    },
+    "nav": {
+        "forYou": "لك",
+        "suggested": "مقترح",
+        "hotDeals": "عروض ساخنة",
+        "tasks": "المهام",
+        "wallet": "المحفظة"
+    }
+}

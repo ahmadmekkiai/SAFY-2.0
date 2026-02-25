@@ -1,0 +1,41 @@
+{
+    "auth": {
+        "login": "Login",
+        "signup": "Sign Up",
+        "email": "Email",
+        "password": "Password",
+        "fullName": "Full Name",
+        "confirmPassword": "Confirm Password",
+        "forgotPassword": "Forgot Password?",
+        "noAccount": "Don't have an account?",
+        "hasAccount": "Already have an account?",
+        "loginButton": "Sign In",
+        "signupButton": "Create Account",
+        "logout": "Logout",
+        "welcome": "Welcome to SAFY",
+        "welcomeBack": "Welcome Back",
+        "subtitle": "Your Time, Your Rewards",
+        "loading": "Loading...",
+        "errors": {
+            "invalidCredentials": "Invalid email or password",
+            "userExists": "User already exists",
+            "weakPassword": "Password must be at least 6 characters",
+            "emailRequired": "Email is required",
+            "passwordRequired": "Password is required",
+            "passwordMismatch": "Passwords do not match",
+            "nameRequired": "Full name is required"
+        }
+    },
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success"
+    },
+    "nav": {
+        "forYou": "For You",
+        "suggested": "Suggested",
+        "hotDeals": "Hot Deals",
+        "tasks": "Tasks",
+        "wallet": "Wallet"
+    }
+}

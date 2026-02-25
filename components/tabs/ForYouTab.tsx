@@ -1,0 +1,352 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, MapPin, Compass, Search, Target } from "lucide-react";
+import AdCard, { ExtendedCampaign } from "@/components/AdCard";
+import { FALLBACK_LOCATION } from "@/lib/mockLocalData";
+import { calculateDistance } from "@/utils/distance";
+import { createClient } from "@/lib/supabase/client";
+
+interface ForYouTabProps {
+    isActive: boolean;
+}
+
+export default function ForYouTab({ isActive }: ForYouTabProps) {
+    const [campaigns, setCampaigns] = useState<ExtendedCampaign[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
+    const [currentRadius, setCurrentRadius] = useState<number>(5); // start with 5km
+    const [isFallback, setIsFallback] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [maxAdsLimit, setMaxAdsLimit] = useState(100);
+    const [activeChip, setActiveChip] = useState("الكل");
+
+    const FILTER_CHIPS = ["الكل", "شاورما", "بخاري", "مشويات", "برجر", "قهوة"];
+
+    const normalizeArabic = (text: string) => {
+        return text.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').toLowerCase();
+    };
+
+    // Fetch GPS and calculate feed
+    const fetchLocationAndBuildFeed = useCallback(async () => {
+        setLoading(true);
+
+        // Fetch User Ad Preferences from localStorage
+        let maxAds = 100; // default
+        let minDiscount = 20; // default
+
+        if (typeof window !== "undefined") {
+            const savedPrefs = localStorage.getItem('safy_ad_prefs');
+            if (savedPrefs) {
+                try {
+                    const parsed = JSON.parse(savedPrefs);
+                    if (parsed.dailyLimit) {
+                        maxAds = parsed.dailyLimit;
+                        setMaxAdsLimit(parsed.dailyLimit);
+                    }
+                    if (parsed.minDiscount !== undefined) minDiscount = parsed.minDiscount;
+                } catch (e) {
+                    console.error("Error parsing ad prefs:", e);
+                }
+            }
+        }
+
+        // 1. Fetch User Interests from Supabase
+        const supabase = createClient();
+        let userInterests: string[] = [];
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('interests')
+                    .eq('id', session.user.id)
+                    .single();
+                if (data?.interests) {
+                    userInterests = data.interests;
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching interests:", error);
+        }
+
+        const buildFeed = async (lat: number, lng: number, fallback: boolean) => {
+            setUserLocation({ lat, lng });
+            setIsFallback(fallback);
+
+            let radius = 1000; // Large arbitrary radius to capture all mock ads
+            let filtered: ExtendedCampaign[] = [];
+
+            try {
+                // Fetch from Supabase
+                const { data: adsData, error } = await supabase.from('local_ads').select('*');
+                if (error) {
+                    console.error("Error fetching local ads:", error);
+                    setLoading(false);
+                    return;
+                }
+
+                const dbAds = adsData || [];
+
+                let matches = dbAds.map((ad: any) => {
+                    const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
+
+                    const merchant = {
+                        id: ad.id,
+                        name: ad.advertiser || "Unknown",
+                        logo: ad.imageUrl || "/placeholder-logo.jpg",
+                        category: ad.category || "General",
+                        overall_likes: Math.floor(Math.random() * 5000) + 1000,
+                        overall_dislikes: Math.floor(Math.random() * 300) + 50
+                    };
+
+                    const campaign = {
+                        id: `c_${ad.id}`,
+                        merchant_id: ad.id,
+                        title: ad.title || "Untitled",
+                        video_url: ad.imageUrl || "",
+                        lat: ad.lat,
+                        lng: ad.lng,
+                        discountPercentage: ad.discountPercentage || 0,
+                        cpc_value: ad.reward || 0,
+                        bounty_budget: (ad.reward || 0) > 1 ? 25000 : 0,
+                        bounty_reward: (ad.reward || 0) * 100,
+                        actionText: ad.actionText,
+                        is_active: true
+                    };
+
+                    return {
+                        ...campaign,
+                        merchant,
+                        distance
+                    } as ExtendedCampaign;
+                }).filter(c => c.distance !== undefined && c.distance <= radius && c.discountPercentage >= minDiscount);
+
+                // Filter by interests if user has any selected
+                if (userInterests.length > 0) {
+                    const interestMatches = matches.filter(c =>
+                        userInterests.includes(c.merchant.category) ||
+                        userInterests.some(i => c.merchant.category.startsWith(i)) ||
+                        userInterests.some(i => i.startsWith(c.merchant.category))
+                    );
+                    // To avoid empty screen, only apply strict interest filter if results exist
+                    if (interestMatches.length > 0) {
+                        matches = interestMatches;
+                    }
+                }
+
+                filtered = matches;
+
+                // If absolutely nothing despite 1000km and fallback interest logic, just try returning everything (Safety net)
+                if (filtered.length === 0) {
+                    filtered = dbAds.map((ad: any) => {
+                        const distance = calculateDistance(lat, lng, ad.lat, ad.lng);
+                        return {
+                            id: `c_${ad.id}`,
+                            merchant_id: ad.id,
+                            title: ad.title || "Untitled",
+                            video_url: ad.imageUrl || "",
+                            lat: ad.lat,
+                            lng: ad.lng,
+                            discountPercentage: ad.discountPercentage || 0,
+                            cpc_value: ad.reward || 0,
+                            bounty_budget: (ad.reward || 0) > 1 ? 25000 : 0,
+                            bounty_reward: (ad.reward || 0) * 100,
+                            actionText: ad.actionText,
+                            is_active: true,
+                            merchant: {
+                                id: ad.id,
+                                name: ad.advertiser || "Unknown",
+                                logo: ad.imageUrl || "/placeholder-logo.jpg",
+                                category: ad.category || "General",
+                                overall_likes: 2500,
+                                overall_dislikes: 120
+                            },
+                            distance
+                        } as ExtendedCampaign;
+                    }).filter(c => c.distance !== undefined && c.discountPercentage >= minDiscount);
+                }
+
+                setCurrentRadius(Math.max(10, Math.ceil(Math.max(...filtered.map(f => f.distance || 0)))));
+
+                // Strict sort by closest distance
+                filtered.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+                // Do not slice here to allow global search on all fetched campaigns. We'll slice dynamically in render.
+                setCampaigns(filtered);
+            } catch (err) {
+                console.error("Unexpected error building feed:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (typeof window !== "undefined" && "geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    buildFeed(position.coords.latitude, position.coords.longitude, false);
+                },
+                (error) => {
+                    console.warn("GPS error, using fallback location:", error);
+                    buildFeed(FALLBACK_LOCATION.lat, FALLBACK_LOCATION.lng, true);
+                },
+                { timeout: 10000, maximumAge: 60000 }
+            );
+        } else {
+            console.warn("Geolocation not supported, using fallback location.");
+            buildFeed(FALLBACK_LOCATION.lat, FALLBACK_LOCATION.lng, true);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isActive) return;
+        fetchLocationAndBuildFeed();
+    }, [isActive, fetchLocationAndBuildFeed]);
+
+    if (!isActive) return null;
+
+    if (loading) {
+        return (
+            <div className="h-full overflow-y-auto pb-24 px-4 bg-slate-50 dark:bg-slate-900 pt-6">
+                <div className="max-w-xl mx-auto space-y-6">
+                    <div className="flex gap-3 mb-4 items-center">
+                        <div className="h-12 flex-1 bg-slate-200 dark:bg-slate-800 rounded-2xl animate-pulse" />
+                        <div className="h-12 w-12 bg-slate-200 dark:bg-slate-800 rounded-2xl flex-shrink-0 animate-pulse" />
+                    </div>
+                    <div className="flex gap-2 mb-6 overflow-hidden">
+                        {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-8 w-20 bg-slate-200 dark:bg-slate-800 rounded-full flex-shrink-0 animate-pulse" />)}
+                    </div>
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="w-full h-80 bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    const displayedCampaigns = campaigns.filter(c => {
+        // Core Text Search Filter
+        if (searchQuery) {
+            const q = normalizeArabic(searchQuery);
+            if (!normalizeArabic(c.title).includes(q) && !normalizeArabic(c.merchant.name).includes(q)) {
+                return false;
+            }
+        }
+        // Sub-Category Chip Filter
+        if (activeChip !== "الكل") {
+            const chipMatch = normalizeArabic(activeChip);
+            if (!normalizeArabic(c.title).includes(chipMatch) && !normalizeArabic(c.merchant.name).includes(chipMatch)) {
+                return false;
+            }
+        }
+        return true;
+    }).slice(0, maxAdsLimit);
+
+    return (
+        <div className="h-full overflow-y-auto pb-24 px-4 bg-slate-50 dark:bg-slate-900 transition-colors relative">
+
+            {/* Fallback Banner */}
+            <AnimatePresence>
+                {isFallback && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="bg-orange-500/90 text-white text-xs px-4 py-2 text-center w-full sticky top-0 z-50 shadow-md"
+                    >
+                        📍 Using default location (Riyadh). Enable GPS for local ads.
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <div className="max-w-xl mx-auto space-y-6 pt-6 relative">
+
+                {/* Sticky Universal Search Bar & GPS Button */}
+                <div className="sticky top-0 z-40 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-lg pt-2 pb-3 -mx-4 px-4 shadow-sm border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="relative flex-1">
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="ابحث عن مطعم، عرض، حي..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="w-full pr-10 pl-4 py-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20 transition-all text-slate-900 dark:text-white placeholder:text-slate-400 text-right"
+                                dir="rtl"
+                            />
+                        </div>
+                        <button
+                            onClick={fetchLocationAndBuildFeed}
+                            className="w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex items-center justify-center transition-colors shadow-md active:scale-95 flex-shrink-0"
+                            title="Refresh Location"
+                        >
+                            <Target className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Floating Sub-Category Chips */}
+                    <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1" dir="rtl">
+                        {FILTER_CHIPS.map(chip => (
+                            <button
+                                key={chip}
+                                onClick={() => setActiveChip(chip)}
+                                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors border ${activeChip === chip
+                                    ? "bg-[#D4AF37] text-white border-[#D4AF37] shadow-sm"
+                                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#D4AF37] hover:text-[#D4AF37]"
+                                    }`}
+                            >
+                                {chip}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Header */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                            Local Feed
+                        </h1>
+                        <div className="flex items-center gap-1.5 mt-1 text-blue-600 dark:text-blue-400 font-medium text-sm">
+                            <MapPin className="w-4 h-4" />
+                            <span>Showing deals within {currentRadius}km</span>
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Deal Cards Grid */}
+                {displayedCampaigns.length > 0 ? (
+                    <div className="flex flex-col gap-6">
+                        <AnimatePresence>
+                            {displayedCampaigns.map((campaign, index) => (
+                                <AdCard
+                                    key={campaign.id}
+                                    campaign={campaign}
+                                    index={index}
+                                />
+                            ))}
+                        </AnimatePresence>
+                    </div>
+                ) : (
+                    // Empty State (Should rarely hit due to new logic, but kept for absolute safety)
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="text-center py-16 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm"
+                    >
+                        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <MapPin className="w-10 h-10 text-slate-400" />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                            No deals nearby
+                        </h3>
+                        <p className="text-slate-500 max-w-[250px] mx-auto text-sm">
+                            We couldn't find any active deals within {currentRadius}km of your location.
+                        </p>
+                    </motion.div>
+                )}
+            </div>
+        </div>
+    );
+}
