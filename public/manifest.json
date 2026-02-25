@@ -1,21 +1,24 @@
 {
-    "name": "SAFY",
-    "short_name": "SAFY",
-    "description": "Smart rewards and deals platform",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#D4AF37",
-    "icons": [
-        {
-            "src": "https://azwmzhvzhsjuvbmsxqul.supabase.co/storage/v1/object/public/assets/SAFY%20icon.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "https://azwmzhvzhsjuvbmsxqul.supabase.co/storage/v1/object/public/assets/SAFY%20icon.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        }
-    ]
+  "name": "SAFY App",
+  "short_name": "SAFY",
+  "description": "SAFY Mobile Application",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#D4AF37",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
