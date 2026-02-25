@@ -6,30 +6,36 @@ import { FaCheckCircle, FaThumbsUp, FaThumbsDown } from "react-icons/fa";
 import { MdLocationOn, MdRestaurantMenu } from "react-icons/md";
 import { useLocale } from "next-intl";
 
-interface AdCardProps {
+// لازم نعرف شكل البيانات اللي جاية من بره
+export interface ExtendedCampaign {
   id: string;
   title: string;
-  neighborhood?: string;
-  distance?: string;
-  imageUrl: string;
-  rewardPoints?: number;
-  onRewardEarned?: (id: string, points: number) => void;
-  // إضافة أي خصائص تانية ممكن تكون الصفحة الأم بتبعتها
+  video_url: string; // ده اللي شايل الصورة في الكود القديم
+  cpc_value: number; // دي النقاط
+  distance?: number;
+  merchant: {
+    name: string;
+    category: string; // ده هنعتبره الحي أو النوع
+  };
   [key: string]: any;
 }
 
-export default function AdCard({
-  id,
-  title,
-  neighborhood = "حي السليمانية",
-  distance = "1.5",
-  imageUrl,
-  rewardPoints = 10,
-  onRewardEarned,
-  ...rest
-}: AdCardProps) {
+interface AdCardProps {
+  campaign: ExtendedCampaign;
+  index: number;
+  onRewardEarned?: (id: string, points: number) => void;
+}
+
+export default function AdCard({ campaign, index, onRewardEarned }: AdCardProps) {
   const locale = useLocale();
   const isAr = locale === "ar";
+
+  // استخراج الداتا من الـ campaign
+  const title = campaign.title || campaign.merchant?.name || (isAr ? "مطعم مميز" : "Featured Restaurant");
+  const imageUrl = campaign.video_url || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=500";
+  const rewardPoints = campaign.cpc_value || 10;
+  const neighborhood = campaign.merchant?.category || (isAr ? "حي السليمانية" : "Al Sulaimaniyah");
+  const distance = campaign.distance ? campaign.distance.toFixed(1) : "1.5";
 
   const [timeLeft, setTimeLeft] = useState(30);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -71,7 +77,7 @@ export default function AdCard({
       setShowOverlay(true);
       
       if (onRewardEarned) {
-        onRewardEarned(id, rewardPoints);
+        onRewardEarned(campaign.id, rewardPoints);
       }
 
       setTimeout(() => {
@@ -80,16 +86,16 @@ export default function AdCard({
     }
 
     return () => clearTimeout(timerId);
-  }, [isActive, timeLeft, isCompleted, id, rewardPoints, onRewardEarned]);
+  }, [isActive, timeLeft, isCompleted, campaign.id, rewardPoints, onRewardEarned]);
 
   const progressPercentage = ((30 - timeLeft) / 30) * 100;
 
   return (
-    <div ref={cardRef} className={`relative bg-white rounded-2xl shadow-sm border overflow-hidden mb-4 transition-all duration-300 ${isActive ? 'border-[#D4AF37] scale-[1.02] shadow-md ring-1 ring-[#D4AF37]/50' : 'border-gray-100 scale-100 opacity-90'}`}>
+    <div ref={cardRef} className={`relative bg-white rounded-2xl shadow-sm border overflow-hidden transition-all duration-300 ${isActive ? 'border-[#D4AF37] scale-[1.02] shadow-md ring-1 ring-[#D4AF37]/50' : 'border-gray-100 scale-100 opacity-90'}`}>
       
       {/* صورة الإعلان */}
       <div className="relative h-48 w-full bg-gray-200">
-        <Image src={imageUrl} alt={title || "صورة المطعم"} fill className="object-cover" unoptimized />
+        <Image src={imageUrl} alt={title} fill className="object-cover" unoptimized />
         
         {/* شريط التقدم */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/20">
