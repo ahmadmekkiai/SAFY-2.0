@@ -1,15 +1,14 @@
-// Mock Ad Campaigns — Updated for SAFY 2.0 Compatibility
+// Mock Ad Campaigns — Updated for SAFY 2.0 (Server & Client Compatible)
 
 export type DealSource = 'jarir' | 'amazon' | 'noon' | 'extra' | 'panda' | 'clickflyer' | 'pricena';
 
-// توحيد التعريف مع ExtendedCampaign لضمان عدم حدوث Error في الـ Build
 export interface AdCampaign {
     id: string;
     title: string;
     titleAr?: string;
     description?: string;
     image?: string; 
-    video_url?: string; // أضفنا ده عشان يقرأ الصور من السوبابيس أو الموك داتا
+    video_url?: string; 
     productUrl: string;
     category: string;
     source: DealSource;
@@ -21,19 +20,26 @@ export interface AdCampaign {
     currency: 'SAR';
     discountPercentage?: number;
 
-    // Economics
+    // Economics (المفتش محتاج دول عشان الحسابات)
     cpcRate: number;
     cpcCost: number;
-    cpc_value: number; // النقاط اللي بتظهر للمستخدم
+    cpc_value: number; 
+    campaignBudget: number; // رجعنا دي
+    safyCosts: number;      // ورجعنا دي
 
-    // Merchant Data (مهمة جداً للكروت الجديدة)
+    // Merchant Data
     merchant: {
         name: string;
         category: string;
         logo: string;
     };
 
-    // Tracking
+    // Tracking (الحقول اللي سببت الخطأ الأخير)
+    totalViews: number;
+    totalClicks: number;
+    totalCompletions: number;
+    totalEngagementPoints: number;
+
     status: 'active' | 'paused' | 'completed';
     featured: boolean;
     priority: number;
@@ -45,6 +51,9 @@ export interface AdCampaign {
 
 export const getDiscountPercentage = (original: number, discounted: number): number =>
     Math.round(((original - discounted) / original) * 100);
+
+export const calculateRewardPool = (budget: number, costs: number): number =>
+    (budget - costs) * 0.70;
 
 export const formatSAR = (amount: number): string =>
     `${amount.toLocaleString('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR`;
@@ -70,6 +79,12 @@ export const MOCK_CAMPAIGNS: AdCampaign[] = [
         cpcRate: 2.00,
         cpcCost: 0.40,
         cpc_value: 20,
+        campaignBudget: 1000,
+        safyCosts: 200,
+        totalViews: 0,
+        totalClicks: 0,
+        totalCompletions: 0,
+        totalEngagementPoints: 0,
         merchant: {
             name: "مكتبة جرير",
             category: "إلكترونيات",
@@ -77,8 +92,7 @@ export const MOCK_CAMPAIGNS: AdCampaign[] = [
         },
         status: 'active', featured: true, priority: 10,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    },
-    // ... باقي الـ 8 حملات يتم تحديثها بنفس الهيكل عند الحاجة
+    }
 ];
 
 export const getCampaignsByInterests = (interests: string[]): AdCampaign[] => {
