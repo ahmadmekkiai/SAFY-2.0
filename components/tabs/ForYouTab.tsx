@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { type AdCampaign } from "@/lib/mockCampaigns";
 import { Search, Map, List, Loader2 } from "lucide-react";
 import AdCard, { ExtendedCampaign } from "@/components/AdCard";
 import { FALLBACK_LOCATION } from "@/lib/mockLocalData";
@@ -15,7 +14,6 @@ const MapView = dynamic(() => import('@/components/MapView'), {
     loading: () => <div className="w-full h-[60vh] bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#D4AF37]" /></div>
 });
 
-// التعديل هنا: غيرنا AdCampaign لـ ExtendedCampaign
 interface ForYouTabProps {
     isActive: boolean;
     onSavedChange?: (ids: Set<string>, campaigns: ExtendedCampaign[]) => void;
@@ -44,9 +42,10 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
             const pos = await getPos();
             lat = pos.coords.latitude;
             lng = pos.coords.longitude;
-        } catch (e) { }
+        } catch (e) { console.log("Using fallback location"); }
 
         setUserLocation({ lat, lng });
+
         const { data: adsData } = await supabase.from('local_ads').select('*');
         
         if (adsData) {
@@ -55,6 +54,7 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
                 title: ad.title,
                 lat: ad.lat,
                 lng: ad.lng,
+                video_url: ad.imageUrl || "", // ربط الصورة بـ video_url عشان AdCard يقرأها
                 cpc_value: Math.round((ad.reward || 1) * 10),
                 discountPercentage: ad.discountPercentage || 0,
                 distance: calculateDistance(lat, lng, ad.lat, ad.lng),
@@ -67,7 +67,6 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
             
             formatted.sort((a, b) => (a.distance || 0) - (b.distance || 0));
             setCampaigns(formatted);
-            // إرسال البيانات المحدثة لملف الـ page
             if (onSavedChange) onSavedChange(new Set(), formatted);
         }
         setLoading(false);
@@ -79,8 +78,8 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
 
     const filteredAds = useMemo(() => {
         return campaigns.filter(ad => {
-            const matchSearch = ad.title.includes(searchQuery) || ad.merchant.name.includes(searchQuery);
-            const matchChip = activeChip === "الكل" || ad.title.includes(activeChip) || ad.merchant.category.includes(activeChip);
+            const matchSearch = ad.title.includes(searchQuery) || ad.merchant?.name.includes(searchQuery);
+            const matchChip = activeChip === "الكل" || ad.title.includes(activeChip) || ad.merchant?.category.includes(activeChip);
             return matchSearch && matchChip;
         });
     }, [campaigns, searchQuery, activeChip]);
@@ -94,26 +93,31 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <input 
-                                type="text" placeholder="ابحث..." value={searchQuery}
+                                type="text" placeholder="ابحث عن عروض..." value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pr-10 pl-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 outline-none"
+                                className="w-full pr-10 pl-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-[#D4AF37]"
                             />
                         </div>
-                        <button onClick={() => setViewMode(viewMode === "list" ? "map" : "list")} className="px-4 bg-[#D4AF37] text-white rounded-2xl font-bold flex items-center gap-2">
-                            {viewMode === "list" ? <Map className="w-5 h-5" /> : <List className="w-5 h-5" />}
+                        <button onClick={() => setViewMode(viewMode === "list" ? "map" : "list")} className="px-4 bg-[#D4AF37] text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg active:scale-95 transition-all">
+                            {viewMode === "list" ? <List className="w-5 h-5" /> : <Map className="w-5 h-5" />}
+                            <span>{viewMode === "list" ? "القائمة" : "الخريطة"}</span>
                         </button>
                     </div>
                 </div>
 
-                <AnimatePresence mode="wait">
-                    {viewMode === "list" ? (
-                        <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                            {filteredAds.map((ad, i) => <AdCard key={ad.id} campaign={ad} index={i} onRewardEarned={() => {}} />)}
-                        </motion.div>
-                    ) : (
-                        <MapView campaigns={filteredAds} userLocation={userLocation} />
-                    )}
-                </AnimatePresence>
+                {loading ? (
+                    <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#D4AF37]" /></div>
+                ) : (
+                    <AnimatePresence mode="wait">
+                        {viewMode === "list" ? (
+                            <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                                {filteredAds.map((ad, i) => <AdCard key={ad.id} campaign={ad} index={i} isSaved={false} />)}
+                            </motion.div>
+                        ) : (
+                            <MapView campaigns={filteredAds} userLocation={userLocation} />
+                        )}
+                    </AnimatePresence>
+                )}
             </div>
         </div>
     );
