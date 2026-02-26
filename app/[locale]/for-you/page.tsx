@@ -8,13 +8,13 @@ import ForYouTab from "@/components/tabs/ForYouTab";
 import SuggestedTab from "@/components/tabs/SuggestedTab";
 import HotDealsTab from "@/components/tabs/HotDealsTab";
 import TasksTab from "@/components/tabs/TasksTab";
-import WalletTab from "@/components/tabs/WalletTab"; // تأكد إن الملف ده موجود في مساره
+import WalletTab from "@/components/tabs/WalletTab";
 import ProfileTab from "@/components/tabs/ProfileTab";
 import FavoritesTab from "@/components/tabs/FavoritesTab";
 import LeaderboardTab from "@/components/tabs/LeaderboardTab";
 import InterestSelection from "@/components/InterestSelection";
 import SplashScreen from "@/components/SplashScreen";
-import { type AdCampaign } from "@/lib/mockCampaigns";
+import { ExtendedCampaign } from "@/components/AdCard"; // استيراد النوع الجديد
 
 export default function ForYouPage() {
     const [showInterestSelection, setShowInterestSelection] = useState(false);
@@ -24,7 +24,7 @@ export default function ForYouPage() {
     const [isFadingOut, setIsFadingOut] = useState(false);
     
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-    const [allCampaigns, setAllCampaigns] = useState<AdCampaign[]>([]);
+    const [allCampaigns, setAllCampaigns] = useState<ExtendedCampaign[]>([]); // التعديل هنا
 
     const router = useRouter();
     const params = useParams();
@@ -32,37 +32,17 @@ export default function ForYouPage() {
     const supabase = createClient();
 
     useEffect(() => {
-        const checkAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.push(`/${locale}/auth`);
-            } else {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('interests')
-                    .eq('id', session.user.id)
-                    .single();
-                if (!profile?.interests || profile.interests.length === 0) {
-                    setShowInterestSelection(true);
-                }
-                setLoading(false);
-            }
-        };
-        checkAuth();
-    }, [router, locale, supabase]);
-
-    useEffect(() => {
         const fadeTimer = setTimeout(() => setIsFadingOut(true), 4000); 
         const removeTimer = setTimeout(() => setShowSplash(false), 4500); 
         return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
     }, []);
 
-    const handleSavedChange = useCallback((ids: Set<string>, campaigns: AdCampaign[]) => {
-        setSavedIds(new Set(ids));
+    const handleSavedChange = useCallback((ids: Set<string>, campaigns: ExtendedCampaign[]) => {
+        // نحدث قائمة الإعلانات المتاحة كلها
         setAllCampaigns(campaigns);
     }, []);
 
-    const handleToggleSave = useCallback((campaign: AdCampaign) => {
+    const handleToggleSave = useCallback((campaign: ExtendedCampaign) => {
         setSavedIds(prev => {
             const next = new Set(prev);
             next.has(campaign.id) ? next.delete(campaign.id) : next.add(campaign.id);
@@ -70,8 +50,6 @@ export default function ForYouPage() {
         });
     }, []);
 
-    if (loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin w-8 h-8 border-4 border-[#D4AF37] border-t-transparent rounded-full" /></div>;
-    
     if (showInterestSelection) return <InterestSelection onComplete={() => setShowInterestSelection(false)} />;
 
     return (
@@ -82,15 +60,17 @@ export default function ForYouPage() {
                 </div>
             )}
             
-            <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-900">
-                <ForYouTab isActive={activeTab === "for-you"} onSavedChange={handleSavedChange} />
-                <SuggestedTab isActive={activeTab === "suggested"} />
-                <HotDealsTab isActive={activeTab === "hot-deals"} />
-                <TasksTab isActive={activeTab === "tasks"} />
-                <LeaderboardTab isActive={activeTab === "leaderboard"} />
-                <WalletTab isActive={activeTab === "wallet"} />
-                <FavoritesTab isActive={activeTab === "favorites"} savedIds={savedIds} campaigns={allCampaigns} onToggleSave={handleToggleSave} />
-                <ProfileTab isActive={activeTab === "profile"} />
+            <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
+                <div className="flex-1 relative overflow-hidden">
+                    <ForYouTab isActive={activeTab === "for-you"} onSavedChange={handleSavedChange} />
+                    <SuggestedTab isActive={activeTab === "suggested"} />
+                    <HotDealsTab isActive={activeTab === "hot-deals"} />
+                    <TasksTab isActive={activeTab === "tasks"} />
+                    <LeaderboardTab isActive={activeTab === "leaderboard"} />
+                    <WalletTab isActive={activeTab === "wallet"} />
+                    <FavoritesTab isActive={activeTab === "favorites"} savedIds={savedIds} campaigns={allCampaigns} onToggleSave={handleToggleSave} />
+                    <ProfileTab isActive={activeTab === "profile"} />
+                </div>
                 
                 <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
             </div>
