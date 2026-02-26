@@ -1,57 +1,43 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Home, Sparkles, Flame, CheckSquare, User, Heart, Trophy } from "lucide-react";
+import { Home, Search, Flame, CheckSquare, Wallet, User, Heart, Trophy } from "lucide-react";
 
-// شيلنا الـ wallet من هنا
-export type TabType = "for-you" | "suggested" | "hot-deals" | "tasks" | "favorites" | "profile" | "leaderboard";
+// هنا ضفنا كلمة "wallet" و "leaderboard" للتعريف عشان المفتش يعرفهم
+export type TabType = "for-you" | "suggested" | "hot-deals" | "tasks" | "wallet" | "profile" | "favorites" | "leaderboard";
 
 interface BottomNavProps {
     activeTab: TabType;
     onTabChange: (tab: TabType) => void;
 }
 
-const tabs = [
-    { id: "for-you" as TabType, label: "For You", icon: Home },
-    { id: "suggested" as TabType, label: "Suggested", icon: Sparkles },
-    { id: "hot-deals" as TabType, label: "Hot Deals", icon: Flame },
-    { id: "tasks" as TabType, label: "Tasks", icon: CheckSquare },
-    { id: "leaderboard" as TabType, label: "Ranking", icon: Trophy },
-    { id: "favorites" as TabType, label: "Saved", icon: Heart },
-    { id: "profile" as TabType, label: "Profile", icon: User },
-];
-
 export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
+    const tabs = [
+        { id: "for-you", icon: Home, label: "لك" },
+        { id: "hot-deals", icon: Flame, label: "عروض" },
+        { id: "leaderboard", icon: Trophy, label: "المتصدرين" },
+        { id: "tasks", icon: CheckSquare, label: "مهام" },
+        { id: "wallet", icon: Wallet, label: "محفظتي" },
+        { id: "profile", icon: User, label: "حسابي" },
+    ];
+
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-700 safe-area-bottom">
-            <div className="flex items-center justify-around h-16 px-1">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-safe-area-inset-bottom z-[150]">
+            <div className="flex justify-around items-center h-16 max-w-xl mx-auto px-2">
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
                     return (
                         <button
                             key={tab.id}
-                            onClick={() => onTabChange(tab.id)}
-                            className="flex flex-col items-center justify-center flex-1 h-full relative"
+                            onClick={() => onTabChange(tab.id as TabType)}
+                            className="flex flex-col items-center justify-center flex-1 transition-all duration-300 relative"
                         >
-                            {isActive && (
-                                <motion.div
-                                    layoutId="activeTab"
-                                    className="absolute inset-0 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                />
-                            )}
-                            <div className="relative flex flex-col items-center gap-0.5">
-                                <Icon
-                                    className={`w-5 h-5 transition-colors ${isActive
-                                            ? tab.id === "favorites" ? "fill-red-500 text-red-500" : "text-blue-600"
-                                            : "text-gray-400"
-                                        }`}
-                                />
-                                <span className={`text-[9px] font-medium transition-colors ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"}`}>
-                                    {tab.label}
-                                </span>
+                            <div className={`p-1.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-[#D4AF37] text-white shadow-lg shadow-[#D4AF37]/30 scale-110 -translate-y-1' : 'text-slate-400'}`}>
+                                <Icon className="w-5 h-5" />
                             </div>
+                            <span className={`text-[10px] mt-1 font-bold transition-all duration-300 ${isActive ? 'text-[#D4AF37] opacity-100' : 'text-slate-400 opacity-70'}`}>
+                                {tab.label}
+                            </span>
                         </button>
                     );
                 })}
