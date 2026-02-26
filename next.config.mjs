@@ -1,53 +1,26 @@
-import withPWA from "@ducanh2912/next-pwa";
 import createNextIntlPlugin from 'next-intl/plugin';
+import withPWAInit from 'next-pwa';
 
-const withNextIntl = createNextIntlPlugin('./i18n.ts');
+const withNextIntl = createNextIntlPlugin();
+
+const withPWA = withPWAInit({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+  register: true,
+  skipWaiting: true,
+});
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    eslint: {
-        // تجاهل أخطاء التفتيش وقت الرفع
-        ignoreDuringBuilds: true,
-    },
-    typescript: {
-        // تأمين إضافي عشان نتجاهل أي أخطاء من التايب سكريبت
-        ignoreBuildErrors: true,
-    },
-    reactStrictMode: true,
-    output: 'standalone',
-    experimental: {
-        serverActions: {
-            bodySizeLimit: '2mb',
-        },
-    },
-    images: {
-        remotePatterns: [
-            {
-                protocol: 'https',
-                hostname: 'picsum.photos',
-            },
-            {
-                protocol: 'https',
-                hostname: 'images.unsplash.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'source.unsplash.com',
-            },
-            {
-                protocol: 'https',
-                hostname: '**.supabase.co',
-            },
-            {
-                protocol: 'https',
-                hostname: 'upload.wikimedia.org',
-            },
-        ],
-    },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**', // عشان يسمح بصور المطاعم من أي رابط
+      },
+    ],
+  },
 };
 
-export default withNextIntl(withPWA({
-    dest: "public",
-    disable: process.env.NODE_ENV === "development",
-    register: true,
-})(nextConfig));
+// هنا بندمج الـ PWA مع اللغات
+export default withPWA(withNextIntl(nextConfig));

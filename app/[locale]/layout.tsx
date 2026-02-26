@@ -1,7 +1,7 @@
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import type { Metadata, Viewport } from 'next'; // نقلنا الاستدعاء ده لفوق خالص
+import type { Metadata, Viewport } from 'next'; 
 import PWAInstallButton from '@/components/PWAInstallButton'; 
 
 const locales = ['en', 'ar'];
@@ -13,19 +13,30 @@ export function generateStaticParams() {
 export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
 
-// التحديث الجديد لـ Next.js بيطلب لون الثيم يكون هنا
+// ضفنا منع الزووم عشان يدي إحساس التطبيق الحقيقي
 export const viewport: Viewport = {
-  themeColor: '#D4AF37',
+  themeColor: '#1a233a',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export const metadata: Metadata = {
-  title: 'SAFY App',
-  description: 'SAFY Mobile Application',
+  title: 'SAFY', 
+  description: 'Your Time, Your Rewards',
   manifest: '/manifest.json',
+  applicationName: 'SAFY', // السطر ده مهم جداً عشان يظهر كاسم تطبيق مستقل في الخلفية
   icons: {
     icon: '/icon-192x192.png',
     shortcut: '/icon-192x192.png',
-    apple: '/icon-192x192.png', // أيقونة الآيفون
+    apple: '/icon-192x192.png', 
+  },
+  // السطور دي بتجبر الآيفون إنه يخفي شريط المتصفح
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'SAFY',
   },
 };
 
