@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { type AdCampaign } from "@/lib/mockCampaigns";
 import { MapPin, Search, Target, Map, List, Loader2 } from "lucide-react";
 import AdCard, { ExtendedCampaign } from "@/components/AdCard";
 import { FALLBACK_LOCATION } from "@/lib/mockLocalData";
@@ -20,7 +21,13 @@ const MapView = dynamic(() => import('@/components/MapView'), {
     )
 });
 
-export default function ForYouTab({ isActive }: { isActive: boolean }) {
+// تعريف الـ Props عشان Typescript يقبل onSavedChange
+interface ForYouTabProps {
+    isActive: boolean;
+    onSavedChange?: (ids: Set<string>, campaigns: AdCampaign[]) => void;
+}
+
+export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
     const [campaigns, setCampaigns] = useState<ExtendedCampaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
