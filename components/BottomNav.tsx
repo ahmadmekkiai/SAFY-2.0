@@ -1,19 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-    Home,
-    Sparkles,
-    Flame,
-    CheckSquare,
-    Wallet,
-    User,
-    Heart,
-    Trophy // استيراد أيقونة الكأس
-} from "lucide-react";
+import { Home, Sparkles, Flame, CheckSquare, User, Heart, Trophy } from "lucide-react";
 
-// إضافة leaderboard للأنواع
-export type TabType = "for-you" | "suggested" | "hot-deals" | "tasks" | "wallet" | "favorites" | "profile" | "leaderboard";
+// شيلنا الـ wallet من هنا
+export type TabType = "for-you" | "suggested" | "hot-deals" | "tasks" | "favorites" | "profile" | "leaderboard";
 
 interface BottomNavProps {
     activeTab: TabType;
@@ -25,8 +16,7 @@ const tabs = [
     { id: "suggested" as TabType, label: "Suggested", icon: Sparkles },
     { id: "hot-deals" as TabType, label: "Hot Deals", icon: Flame },
     { id: "tasks" as TabType, label: "Tasks", icon: CheckSquare },
-    { id: "wallet" as TabType, label: "Wallet", icon: Wallet },
-    { id: "leaderboard" as TabType, label: "Ranking", icon: Trophy }, // التاب الجديد هنا
+    { id: "leaderboard" as TabType, label: "Ranking", icon: Trophy },
     { id: "favorites" as TabType, label: "Saved", icon: Heart },
     { id: "profile" as TabType, label: "Profile", icon: User },
 ];
@@ -38,7 +28,6 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
-
                     return (
                         <button
                             key={tab.id}
@@ -55,18 +44,11 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                             <div className="relative flex flex-col items-center gap-0.5">
                                 <Icon
                                     className={`w-5 h-5 transition-colors ${isActive
-                                            ? tab.id === "favorites"
-                                                ? "fill-red-500 text-red-500"
-                                                : tab.id === "leaderboard"
-                                                    ? "text-amber-500 fill-amber-500/20" // لون ذهبي للكأس لما يتفعل
-                                                    : "text-blue-600"
+                                            ? tab.id === "favorites" ? "fill-red-500 text-red-500" : "text-blue-600"
                                             : "text-gray-400"
                                         }`}
                                 />
-                                <span
-                                    className={`text-[9px] font-medium transition-colors ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
-                                        }`}
-                                >
+                                <span className={`text-[9px] font-medium transition-colors ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"}`}>
                                     {tab.label}
                                 </span>
                             </div>

@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-    User, Mail, Globe, LogOut, Sparkles, Coins, Settings, ChevronRight, X, Search, Check, Minus, Clock, Phone, Calendar, Flag, Moon, Sun
+    User, Mail, Globe, LogOut, Sparkles, Coins, Settings, ChevronRight, X, Search, Check, Minus, Clock, Phone, Calendar, Flag, Moon, Sun, Wallet, Gift, TrendingUp
 } from "lucide-react";
 import {
     INTEREST_TAXONOMY, searchTaxonomy, getCategoryPath, flattenTaxonomy, type InterestCategory
@@ -108,7 +108,6 @@ export default function ProfileTab({ isActive }: ProfileTabProps) {
 
     const changeLanguage = (newLocale: string) => {
         const currentPath = pathname;
-        // استبدال كود اللغة في الـ URL الحالي (مثال: /ar/app -> /en/app)
         const newPath = currentPath.replace(/^\/[a-z]{2}/, `/${newLocale}`);
         document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000`;
         router.replace(newPath);
@@ -316,6 +315,30 @@ export default function ProfileTab({ isActive }: ProfileTabProps) {
                             <Coins className="w-12 h-12 opacity-80" />
                         </div>
                     </div>
+                </motion.div>
+
+                {/* أزرار المحفظة السريعة */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="grid grid-cols-3 gap-3" dir="rtl">
+                    <button className="flex flex-col items-center justify-center py-4 bg-white/60 dark:bg-white/5 backdrop-blur-md rounded-2xl border border-white/40 dark:border-white/10 shadow-sm hover:bg-white/80 dark:hover:bg-white/10 transition-all group">
+                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">سجل النقاط</span>
+                    </button>
+
+                    <button className="flex flex-col items-center justify-center py-4 bg-white/60 dark:bg-white/5 backdrop-blur-md rounded-2xl border border-white/40 dark:border-white/10 shadow-sm hover:bg-white/80 dark:hover:bg-white/10 transition-all group">
+                        <div className="w-10 h-10 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <Gift className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">استبدال</span>
+                    </button>
+
+                    <button className="flex flex-col items-center justify-center py-4 bg-white/60 dark:bg-white/5 backdrop-blur-md rounded-2xl border border-white/40 dark:border-white/10 shadow-sm hover:bg-white/80 dark:hover:bg-white/10 transition-all group">
+                        <div className="w-10 h-10 bg-amber-100 dark:bg-amber-500/20 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">اكسب نقاط</span>
+                    </button>
                 </motion.div>
 
                 {/* Interests Section */}
