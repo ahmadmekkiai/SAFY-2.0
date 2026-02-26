@@ -1,7 +1,8 @@
 import createNextIntlPlugin from 'next-intl/plugin';
 import withPWAInit from 'next-pwa';
 
-const withNextIntl = createNextIntlPlugin();
+// التعديل هنا: حددنا مسار ملف الترجمة بوضوح
+const withNextIntl = createNextIntlPlugin('./i18n.ts'); 
 
 const withPWA = withPWAInit({
   dest: 'public',
@@ -16,11 +17,10 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**', // عشان يسمح بصور المطاعم من أي رابط
+        hostname: '**', 
       },
     ],
   },
 };
 
-// هنا بندمج الـ PWA مع اللغات
 export default withPWA(withNextIntl(nextConfig));
