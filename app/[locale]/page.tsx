@@ -8,13 +8,13 @@ import ForYouTab from "@/components/tabs/ForYouTab";
 import SuggestedTab from "@/components/tabs/SuggestedTab";
 import HotDealsTab from "@/components/tabs/HotDealsTab";
 import TasksTab from "@/components/tabs/TasksTab";
-// مسحنا استيراد WalletTab من هنا
 import ProfileTab from "@/components/tabs/ProfileTab";
 import FavoritesTab from "@/components/tabs/FavoritesTab";
 import InterestSelection from "@/components/InterestSelection";
 import { type AdCampaign } from "@/lib/mockCampaigns";
 import SplashScreen from "@/components/SplashScreen";
 import LeaderboardTab from "@/components/tabs/LeaderboardTab";
+
 export const dynamic = 'force-dynamic';
 
 export default function Home() {
@@ -26,7 +26,7 @@ export default function Home() {
     const [showSplash, setShowSplash] = useState(true);
     const [isFadingOut, setIsFadingOut] = useState(false);
 
-    // Favorites state — lifted here so ForYouTab and FavoritesTab share it
+    // Favorites state 
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
     const [allCampaigns, setAllCampaigns] = useState<AdCampaign[]>([]);
 
@@ -69,9 +69,12 @@ export default function Home() {
         return () => subscription.unsubscribe();
     }, [router, supabase, locale]);
 
+    // التوقيت المثالي للسبلاش سكرين مع الصوت الـ 3 ثواني
     useEffect(() => {
-        const fadeTimer = setTimeout(() => setIsFadingOut(true), 2000);
-        const removeTimer = setTimeout(() => setShowSplash(false), 2500);
+        // الشاشة هتبدأ تختفي بشياكة بعد 4 ثواني (الصوت هيكون خلص قبلها بثانية)
+        const fadeTimer = setTimeout(() => setIsFadingOut(true), 4000); 
+        // نشيلها من الذاكرة تماماً بعد 4.5 ثانية
+        const removeTimer = setTimeout(() => setShowSplash(false), 4500); 
         return () => {
             clearTimeout(fadeTimer);
             clearTimeout(removeTimer);
@@ -112,7 +115,6 @@ export default function Home() {
                 <HotDealsTab isActive={activeTab === "hot-deals"} />
                 <TasksTab isActive={activeTab === "tasks"} />
                 <LeaderboardTab isActive={activeTab === "leaderboard"} />
-                {/* مسحنا WalletTab من هنا */}
                 
                 <FavoritesTab
                     isActive={activeTab === "favorites"}
