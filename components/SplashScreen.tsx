@@ -1,29 +1,44 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-export default function SplashScreen() {
+// التعديل هنا: ضفنا الـ interface عشان نفهم Typescript إن في onComplete ممكن تتبعت
+interface SplashScreenProps {
+    onComplete?: () => void;
+}
+
+export default function SplashScreen({ onComplete }: SplashScreenProps) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [hasPlayed, setHasPlayed] = useState(false);
 
     useEffect(() => {
-        // تشغيل الصوت أول ما الـ Component يظهر
-        if (audioRef.current) {
-            audioRef.current.volume = 0.5; // ممكن تعلي أو توطي الصوت من هنا (0.0 لـ 1.0)
-            
-            // في المتصفحات الحديثة، لازم المستخدم يعمل "تفاعل" عشان الصوت يشتغل
-            // بس في الـ Splash Screen ساعات المتصفح بيسمح لو الصوت قصير
+        if (audioRef.current && !hasPlayed) {
+            audioRef.current.volume = 0.7; 
             const playPromise = audioRef.current.play();
+            
             if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.log("Auto-play was prevented by the browser. This is normal behavior if the user hasn't interacted with the page yet.", error);
+                playPromise.then(() => {
+                    setHasPlayed(true); 
+                }).catch(error => {
+                    console.log("المتصفح منع التشغيل التلقائي للصوت، في انتظار تفاعل المستخدم.");
                 });
             }
         }
-    }, []);
+    }, [hasPlayed]);
+
+    const handleInteraction = () => {
+        if (audioRef.current && !hasPlayed) {
+            audioRef.current.play().catch(() => {});
+            setHasPlayed(true);
+        }
+    };
 
     return (
-        <div className="splash-container">
-            {/* ملف الصوت مخفي */}
+        <div 
+            className="splash-container" 
+            onClick={handleInteraction} 
+            onTouchStart={handleInteraction}
+        >
             <audio ref={audioRef} src="/splash-sound.mp3" preload="auto" />
 
             <style jsx>{`
@@ -39,11 +54,9 @@ export default function SplashScreen() {
                     position: relative;
                     overflow: hidden;
                     font-family: system-ui, -apple-system, sans-serif;
+                    cursor: pointer;
                 }
-                .ambient-glow {
-                    position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.15; z-index: 1;
-                    animation: float 6s infinite alternate ease-in-out;
-                }
+                .ambient-glow { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.15; z-index: 1; animation: float 6s infinite alternate ease-in-out; }
                 .glow-gold { background-color: #D4AF37; width: 60vw; height: 60vw; top: -10%; left: -20%; }
                 .glow-blue { background-color: #4A6B9C; width: 70vw; height: 70vw; bottom: -10%; right: -20%; animation-delay: -3s; }
                 
@@ -71,7 +84,7 @@ export default function SplashScreen() {
             `}</style>
 
             <div className="ambient-glow glow-gold"></div>
-            <div class="ambient-glow glow-blue"></div>
+            <div className="ambient-glow glow-blue"></div>
 
             <div className="logo-wrapper">
                 <div className="logo-text">
