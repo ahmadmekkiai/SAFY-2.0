@@ -3,24 +3,25 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Map, List, Loader2 } from "lucide-react";
-import AdCard, { ExtendedCampaign } from "@/components/AdCard";
+import UnifiedCard from "@/components/UnifiedCard";
+import { UnifiedFeedItem, Place, Campaign } from "@/types/app";
 import { FALLBACK_LOCATION } from "@/lib/mockLocalData";
 import { calculateDistance } from "@/utils/distance";
 import { createClient } from "@/lib/supabase/client";
 import dynamic from 'next/dynamic';
 
-const MapView = dynamic(() => import('@/components/MapView'), { 
+const MapView = dynamic(() => import('@/components/MapView'), {
     ssr: false,
     loading: () => <div className="w-full h-[60vh] bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#D4AF37]" /></div>
 });
 
 interface ForYouTabProps {
     isActive: boolean;
-    onSavedChange?: (ids: Set<string>, campaigns: ExtendedCampaign[]) => void;
+    onSavedChange?: (ids: Set<string>, campaigns: UnifiedFeedItem[]) => void;
 }
 
 export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
-    const [campaigns, setCampaigns] = useState<ExtendedCampaign[]>([]);
+    const [campaigns, setCampaigns] = useState<UnifiedFeedItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -47,25 +48,32 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
         setUserLocation({ lat, lng });
 
         const { data: adsData } = await supabase.from('local_ads').select('*');
-        
+
         if (adsData) {
-            const formatted: ExtendedCampaign[] = adsData.map((ad: any) => ({
-                id: ad.id.toString(),
-                title: ad.title,
-                lat: ad.lat,
-                lng: ad.lng,
-                video_url: ad.imageUrl || "", // ربط الصورة بـ video_url عشان AdCard يقرأها
-                cpc_value: Math.round((ad.reward || 1) * 10),
-                discountPercentage: ad.discountPercentage || 0,
-                distance: calculateDistance(lat, lng, ad.lat, ad.lng),
-                merchant: {
-                    name: ad.advertiser || "مطعم",
+            const formatted: UnifiedFeedItem[] = adsData.map((ad: any) => ({
+                place: {
+                    id: ad.id.toString(),
+                    name: ad.advertiser || ad.title || "مطعم",
                     category: ad.neighborhood || "الرياض",
-                    logo: ad.imageUrl || ""
-                }
+                    lat: ad.lat,
+                    lng: ad.lng,
+                    logo: ad.imageUrl || "",
+                    cover_image: ad.imageUrl || "",
+                    rating: 5.0
+                },
+                campaign: {
+                    id: ad.id.toString(),
+                    place_id: ad.id.toString(),
+                    cpc_value: Math.round((ad.reward || 1) * 10),
+                    discount_percentage: ad.discountPercentage || 0,
+                    campaign_budget: 1000,
+                    status: 'active'
+                },
+                // Include distance as a non-standard property for sorting, or we can handle sorting externally. We can add distance to Place or keep it localized. Actually, let's keep it in Place for now or sort dynamically.
             }));
-            
-            formatted.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+            // Sort by distance (we calculate dynamically or add to Place temporarily)
+            formatted.sort((a, b) => calculateDistance(lat, lng, a.place.lat, a.place.lng) - calculateDistance(lat, lng, b.place.lat, b.place.lng));
             setCampaigns(formatted);
             if (onSavedChange) onSavedChange(new Set(), formatted);
         }
@@ -77,9 +85,9 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
     }, [isActive, loadData]);
 
     const filteredAds = useMemo(() => {
-        return campaigns.filter(ad => {
-            const matchSearch = ad.title.includes(searchQuery) || ad.merchant?.name.includes(searchQuery);
-            const matchChip = activeChip === "الكل" || ad.title.includes(activeChip) || ad.merchant?.category.includes(activeChip);
+        return campaigns.filter(item => {
+            const matchSearch = item.place.name.includes(searchQuery) || item.place.category.includes(searchQuery);
+            const matchChip = activeChip === "الكل" || item.place.name.includes(activeChip) || item.place.category.includes(activeChip);
             return matchSearch && matchChip;
         });
     }, [campaigns, searchQuery, activeChip]);
@@ -92,16 +100,28 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
                 <div className="sticky top-0 z-[100] bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md pb-4 space-y-4">
                     <div className="flex gap-2">
                         <div className="relative flex-1">
-                            <input 
+                            <input
                                 type="text" placeholder="ابحث عن عروض..." value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pr-10 pl-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-[#D4AF37]"
                             />
                         </div>
-                        <button onClick={() => setViewMode(viewMode === "list" ? "map" : "list")} className="px-4 bg-[#D4AF37] text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg active:scale-95 transition-all">
-                            {viewMode === "list" ? <List className="w-5 h-5" /> : <Map className="w-5 h-5" />}
-                            <span>{viewMode === "list" ? "القائمة" : "الخريطة"}</span>
-                        </button>
+                        <div className="flex bg-slate-200 dark:bg-slate-700 p-1 rounded-2xl gap-1">
+                            <button
+                                onClick={() => setViewMode("list")}
+                                className={`px-4 py-2 text-sm font-bold flex items-center gap-2 rounded-xl transition-all ${viewMode === "list" ? "bg-[#D4AF37] text-white shadow-md" : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`}
+                            >
+                                <List className="w-5 h-5" />
+                                <span>القائمة</span>
+                            </button>
+                            <button
+                                onClick={() => setViewMode("map")}
+                                className={`px-4 py-2 text-sm font-bold flex items-center gap-2 rounded-xl transition-all ${viewMode === "map" ? "bg-[#D4AF37] text-white shadow-md" : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`}
+                            >
+                                <Map className="w-5 h-5" />
+                                <span>الخريطة</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -111,10 +131,10 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
                     <AnimatePresence mode="wait">
                         {viewMode === "list" ? (
                             <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                                {filteredAds.map((ad, i) => <AdCard key={ad.id} campaign={ad} index={i} isSaved={false} />)}
+                                {filteredAds.map((item, i) => <UnifiedCard key={item.place.id} item={item} index={i} isSaved={false} />)}
                             </motion.div>
                         ) : (
-                            <MapView campaigns={filteredAds} userLocation={userLocation} />
+                            <MapView campaigns={filteredAds as any} userLocation={userLocation} />
                         )}
                     </AnimatePresence>
                 )}

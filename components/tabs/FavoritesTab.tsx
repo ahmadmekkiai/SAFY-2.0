@@ -2,17 +2,18 @@
 
 import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
-import AdCard, { ExtendedCampaign } from "@/components/AdCard";
+import { UnifiedFeedItem } from "@/types/app";
+import UnifiedCard from "@/components/UnifiedCard";
 
 interface FavoritesTabProps {
     isActive: boolean;
     savedIds: Set<string>;
-    campaigns: ExtendedCampaign[];
-    onToggleSave: (campaign: ExtendedCampaign) => void;
+    campaigns: UnifiedFeedItem[];
+    onToggleSave: (item: UnifiedFeedItem) => void;
 }
 
 export default function FavoritesTab({ isActive, savedIds, campaigns, onToggleSave }: FavoritesTabProps) {
-    const savedCampaigns = campaigns.filter(c => savedIds.has(c.id));
+    const savedCampaigns = campaigns.filter(c => savedIds.has(c.place.id));
 
     if (!isActive) return null;
 
@@ -35,10 +36,10 @@ export default function FavoritesTab({ isActive, savedIds, campaigns, onToggleSa
                 ) : (
                     <div className="space-y-4">
                         {savedCampaigns.map((campaign, index) => (
-                            <AdCard 
-                                key={campaign.id} 
-                                campaign={campaign} 
-                                index={index} 
+                            <UnifiedCard
+                                key={campaign.place.id}
+                                item={campaign}
+                                index={index}
                                 isSaved={true}
                                 onToggleSave={() => onToggleSave(campaign)}
                             />
