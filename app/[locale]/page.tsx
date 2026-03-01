@@ -14,7 +14,7 @@ import FavoritesTab from "@/components/tabs/FavoritesTab";
 import LeaderboardTab from "@/components/tabs/LeaderboardTab";
 import InterestSelection from "@/components/InterestSelection";
 import SplashScreen from "@/components/SplashScreen";
-import { ExtendedCampaign } from "@/components/AdCard"; // النوع المطور اللي بيعمل المشكلة
+import { UnifiedFeedItem } from "@/types/app";
 
 export default function LocalePage() {
     const [showInterestSelection, setShowInterestSelection] = useState(false);
@@ -22,10 +22,10 @@ export default function LocalePage() {
     const [loading, setLoading] = useState(true);
     const [showSplash, setShowSplash] = useState(true);
     const [isFadingOut, setIsFadingOut] = useState(false);
-    
+
     // المجموعات اللي كانت مسببة التعارض - حولناها للنوع المطور
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-    const [allCampaigns, setAllCampaigns] = useState<ExtendedCampaign[]>([]);
+    const [allCampaigns, setAllCampaigns] = useState<UnifiedFeedItem[]>([]);
 
     const router = useRouter();
     const params = useParams();
@@ -55,23 +55,24 @@ export default function LocalePage() {
 
     // توقيتات السبلاش سكرين (3 ثواني صوت + فادي أوت)
     useEffect(() => {
-        const fadeTimer = setTimeout(() => setIsFadingOut(true), 4000); 
-        const removeTimer = setTimeout(() => setShowSplash(false), 4500); 
+        const fadeTimer = setTimeout(() => setIsFadingOut(true), 4000);
+        const removeTimer = setTimeout(() => setShowSplash(false), 4500);
         return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
     }, []);
 
     // الدالة اللي كانت مسببة الخطأ - تم تحديث نوع البيانات لـ ExtendedCampaign
-    const handleSavedChange = useCallback((ids: Set<string>, campaigns: ExtendedCampaign[]) => {
+    const handleSavedChange = useCallback((ids: Set<string>, campaigns: UnifiedFeedItem[]) => {
         setAllCampaigns(campaigns);
     }, []);
 
-    const handleToggleSave = useCallback((campaign: ExtendedCampaign) => {
+    const handleToggleSave = useCallback((item: UnifiedFeedItem) => {
         setSavedIds(prev => {
             const next = new Set(prev);
-            if (next.has(campaign.id)) {
-                next.delete(campaign.id);
+            const id = item.place.id;
+            if (next.has(id)) {
+                next.delete(id);
             } else {
-                next.add(campaign.id);
+                next.add(id);
             }
             return next;
         });
@@ -84,7 +85,7 @@ export default function LocalePage() {
             </div>
         );
     }
-    
+
     if (showInterestSelection) return <InterestSelection onComplete={() => setShowInterestSelection(false)} />;
 
     return (
@@ -95,31 +96,31 @@ export default function LocalePage() {
                     <SplashScreen />
                 </div>
             )}
-            
+
             <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
                 {/* منطقة محتوى التبويبات */}
                 <div className="flex-1 relative overflow-hidden">
-                    <ForYouTab 
-                        isActive={activeTab === "for-you"} 
-                        onSavedChange={handleSavedChange} 
+                    <ForYouTab
+                        isActive={activeTab === "for-you"}
+                        onSavedChange={handleSavedChange as any}
                     />
-                    
+
                     <SuggestedTab isActive={activeTab === "suggested"} />
                     <HotDealsTab isActive={activeTab === "hot-deals"} />
                     <TasksTab isActive={activeTab === "tasks"} />
                     <LeaderboardTab isActive={activeTab === "leaderboard"} />
                     <WalletTab isActive={activeTab === "wallet"} />
-                    
-                    <FavoritesTab 
-                        isActive={activeTab === "favorites"} 
-                        savedIds={savedIds} 
-                        campaigns={allCampaigns} 
-                        onToggleSave={handleToggleSave} 
+
+                    <FavoritesTab
+                        isActive={activeTab === "favorites"}
+                        savedIds={savedIds}
+                        campaigns={allCampaigns as any}
+                        onToggleSave={handleToggleSave as any}
                     />
-                    
+
                     <ProfileTab isActive={activeTab === "profile"} />
                 </div>
-                
+
                 {/* شريط التنقل السفلي */}
                 <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
             </div>

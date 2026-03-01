@@ -14,7 +14,7 @@ import FavoritesTab from "@/components/tabs/FavoritesTab";
 import LeaderboardTab from "@/components/tabs/LeaderboardTab";
 import InterestSelection from "@/components/InterestSelection";
 import SplashScreen from "@/components/SplashScreen";
-import { ExtendedCampaign } from "@/components/AdCard"; // استيراد النوع الجديد
+import { UnifiedFeedItem } from "@/types/app";
 
 export default function ForYouPage() {
     const [showInterestSelection, setShowInterestSelection] = useState(false);
@@ -22,9 +22,9 @@ export default function ForYouPage() {
     const [loading, setLoading] = useState(true);
     const [showSplash, setShowSplash] = useState(true);
     const [isFadingOut, setIsFadingOut] = useState(false);
-    
+
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-    const [allCampaigns, setAllCampaigns] = useState<ExtendedCampaign[]>([]); // التعديل هنا
+    const [allCampaigns, setAllCampaigns] = useState<UnifiedFeedItem[]>([]);
 
     const router = useRouter();
     const params = useParams();
@@ -32,20 +32,21 @@ export default function ForYouPage() {
     const supabase = createClient();
 
     useEffect(() => {
-        const fadeTimer = setTimeout(() => setIsFadingOut(true), 4000); 
-        const removeTimer = setTimeout(() => setShowSplash(false), 4500); 
+        const fadeTimer = setTimeout(() => setIsFadingOut(true), 4000);
+        const removeTimer = setTimeout(() => setShowSplash(false), 4500);
         return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
     }, []);
 
-    const handleSavedChange = useCallback((ids: Set<string>, campaigns: ExtendedCampaign[]) => {
+    const handleSavedChange = useCallback((ids: Set<string>, campaigns: UnifiedFeedItem[]) => {
         // نحدث قائمة الإعلانات المتاحة كلها
         setAllCampaigns(campaigns);
     }, []);
 
-    const handleToggleSave = useCallback((campaign: ExtendedCampaign) => {
+    const handleToggleSave = useCallback((item: UnifiedFeedItem) => {
         setSavedIds(prev => {
             const next = new Set(prev);
-            next.has(campaign.id) ? next.delete(campaign.id) : next.add(campaign.id);
+            const id = item.place.id;
+            next.has(id) ? next.delete(id) : next.add(id);
             return next;
         });
     }, []);
@@ -59,19 +60,19 @@ export default function ForYouPage() {
                     <SplashScreen />
                 </div>
             )}
-            
+
             <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
                 <div className="flex-1 relative overflow-hidden">
-                    <ForYouTab isActive={activeTab === "for-you"} onSavedChange={handleSavedChange} />
+                    <ForYouTab isActive={activeTab === "for-you"} onSavedChange={handleSavedChange as any} />
                     <SuggestedTab isActive={activeTab === "suggested"} />
                     <HotDealsTab isActive={activeTab === "hot-deals"} />
                     <TasksTab isActive={activeTab === "tasks"} />
                     <LeaderboardTab isActive={activeTab === "leaderboard"} />
                     <WalletTab isActive={activeTab === "wallet"} />
-                    <FavoritesTab isActive={activeTab === "favorites"} savedIds={savedIds} campaigns={allCampaigns} onToggleSave={handleToggleSave} />
+                    <FavoritesTab isActive={activeTab === "favorites"} savedIds={savedIds} campaigns={allCampaigns as any} onToggleSave={handleToggleSave as any} />
                     <ProfileTab isActive={activeTab === "profile"} />
                 </div>
-                
+
                 <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
             </div>
         </>
