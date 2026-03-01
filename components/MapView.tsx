@@ -3,7 +3,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ExtendedCampaign } from "./AdCard";
+import { UnifiedFeedItem } from "@/types/app";
 
 // تظبيط أيقونة الخريطة الافتراضية
 const icon = L.icon({
@@ -21,13 +21,13 @@ function ChangeView({ center }: { center: [number, number] }) {
 }
 
 interface MapViewProps {
-  campaigns: ExtendedCampaign[];
+  campaigns: UnifiedFeedItem[];
   userLocation: { lat: number; lng: number } | null;
 }
 
 export default function MapView({ campaigns, userLocation }: MapViewProps) {
-  const defaultCenter: [number, number] = userLocation 
-    ? [userLocation.lat, userLocation.lng] 
+  const defaultCenter: [number, number] = userLocation
+    ? [userLocation.lat, userLocation.lng]
     : [24.7136, 46.6753]; // الرياض كوضع افتراضي
 
   return (
@@ -44,20 +44,21 @@ export default function MapView({ campaigns, userLocation }: MapViewProps) {
 
         {userLocation && <ChangeView center={[userLocation.lat, userLocation.lng]} />}
 
-        {campaigns.map((ad) => (
-          <Marker key={ad.id} position={[ad.lat, ad.lng]} icon={icon}>
+        {campaigns.map((item) => (
+          <Marker key={item.place.id} position={[item.place.lat, item.place.lng]} icon={icon}>
             <Popup>
               <div className="text-right p-1 font-sans min-w-[140px]" dir="rtl">
-                {/* استخدام علامة الـ ? هنا هو اللي بيحل المشكلة */}
                 <h3 className="font-bold text-sm text-slate-900 mb-1">
-                    {ad.merchant?.name || ad.title || "مطعم"}
+                  {item.place.name || "مطعم"}
                 </h3>
                 <p className="text-[10px] text-slate-500 mb-2">
-                    {ad.merchant?.category || "عرض مميز"}
+                  {item.place.category || "عرض مميز"}
                 </p>
-                <div className="bg-[#D4AF37] text-white font-bold flex items-center justify-center py-1 rounded-lg">
-                  <span className="text-xs">+{ad.cpc_value || 10} نقطة</span>
-                </div>
+                {item.campaign && item.campaign.status === 'active' && (
+                  <div className="bg-[#D4AF37] text-white font-bold flex items-center justify-center py-1 rounded-lg">
+                    <span className="text-xs">+{item.campaign.cpc_value || 10} نقطة</span>
+                  </div>
+                )}
               </div>
             </Popup>
           </Marker>
