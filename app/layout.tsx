@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     manifest: "/manifest.json",
     appleWebApp: {
         capable: true,
-        statusBarStyle: "black-translucent",
+        statusBarStyle: "default",
         title: "SAFY",
     },
     formatDetection: {
@@ -35,6 +35,9 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en" suppressHydrationWarning>
+            <head>
+                <link rel="manifest" href="/manifest.json" />
+            </head>
             <body className={inter.className}>
                 <ThemeProvider
                     attribute="class"

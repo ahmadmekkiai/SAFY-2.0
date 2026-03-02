@@ -35,6 +35,14 @@ export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onTo
     const [showOverlay, setShowOverlay] = useState(false);
     const [isActive, setIsActive] = useState(false);
 
+    // Add local state for favored items so the user gets instant visual feedback
+    const [localIsSaved, setLocalIsSaved] = useState(isSaved || false);
+
+    // Sync if prop changes
+    useEffect(() => {
+        setLocalIsSaved(isSaved || false);
+    }, [isSaved]);
+
     const cardRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -65,23 +73,31 @@ export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onTo
         router.push(`/${locale}/place/${place.id}`);
     };
 
+    const handleDirections = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        window.open(`https://maps.google.com/?q=${place.lat},${place.lng}`, '_blank');
+    };
+
+    const handleToggleFavorite = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLocalIsSaved(!localIsSaved);
+        if (onToggleSave) onToggleSave();
+    };
+
     return (
         <div
             ref={cardRef}
             onClick={navigateToPlace}
             className={`relative bg-white dark:bg-slate-800 rounded-3xl overflow-hidden transition-all duration-300 cursor-pointer flex flex-col ${hasActiveCampaign
-                    ? 'border border-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.15)] ring-1 ring-[#D4AF37]/10'
-                    : 'border border-gray-100 dark:border-slate-700 shadow-sm'
+                ? 'border border-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.15)] ring-1 ring-[#D4AF37]/10'
+                : 'border border-gray-100 dark:border-slate-700 shadow-sm'
                 }`}
         >
             <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    if (onToggleSave) onToggleSave();
-                }}
+                onClick={handleToggleFavorite}
                 className="absolute top-4 left-4 z-20 w-10 h-10 bg-white/80 dark:bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center shadow-md active:scale-90 transition-all"
             >
-                {isSaved ? <FaHeart className="text-red-500 text-xl animate-in zoom-in" /> : <FaRegHeart className="text-gray-400 text-xl" />}
+                {localIsSaved ? <FaHeart className="text-red-500 text-xl animate-in zoom-in" /> : <FaRegHeart className="text-gray-400 text-xl" />}
             </button>
 
             <div className="relative h-48 w-full bg-gray-200 dark:bg-slate-700 flex-shrink-0">
@@ -110,6 +126,9 @@ export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onTo
                         <h3 className="font-black text-lg text-gray-900 dark:text-white leading-tight">{title}</h3>
                         <p className="text-sm border-r-2 pr-2 border-[#D4AF37] text-gray-600 dark:text-gray-400 flex items-center font-bold">
                             {category}
+                            <span className="mx-2 text-gray-300 dark:text-gray-600">|</span>
+                            {/* In a real app we'd calculate distance, for now showing a simulated one or placeholder */}
+                            <span>يبعد عنك {Math.floor(Math.random() * 5) + 1} كم</span>
                         </p>
                     </div>
                     {place.rating && (
@@ -122,7 +141,7 @@ export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onTo
                 {/* External Actions Menu */}
                 <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
                     <button
-                        onClick={(e) => { e.stopPropagation(); /* Map Link */ }}
+                        onClick={handleDirections}
                         className="flex flex-col items-center justify-center gap-1.5 p-2 bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-xl transition-colors group"
                     >
                         <MdDirections className="text-blue-500 text-xl group-hover:scale-110 transition-transform" />

@@ -17,7 +17,7 @@ export default function PlaceDetailsPage({ params }: { params: { id: string, loc
     const isAr = locale === "ar";
     const supabase = createClient();
 
-    const [item, setItem] = useState<UnifiedFeedItem | null>(null);
+    const [item, setItem] = useState<UnifiedFeedItem | null | undefined>(null);
     const [timeLeft, setTimeLeft] = useState(30);
     const [isCompleted, setIsCompleted] = useState(false);
     const [showOverlay, setShowOverlay] = useState(false);
@@ -38,6 +38,12 @@ export default function PlaceDetailsPage({ params }: { params: { id: string, loc
         // Load item data
         const found = mockUnifiedFeed.find(feed => feed.place.id === params.id);
         setItem(found || null);
+
+        // Timeout to stop infinite loader if it fails
+        const t = setTimeout(() => {
+            if (!found) setItem(undefined);
+        }, 1000);
+        return () => clearTimeout(t);
     }, [params.id, supabase]);
 
     useEffect(() => {
@@ -72,11 +78,27 @@ export default function PlaceDetailsPage({ params }: { params: { id: string, loc
         return () => clearTimeout(timerId);
     }, [isActive, timeLeft, isCompleted, item, userId]);
 
-    if (!item) {
+    if (item === null) {
         return (
             <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center p-8">
                 <div className="animate-spin w-10 h-10 border-4 border-[#D4AF37] border-t-transparent rounded-full mb-4"></div>
                 <p className="text-gray-500 dark:text-gray-400 font-bold">{isAr ? "جاري تحميل تفاصيل المكان..." : "Loading place details..."}</p>
+            </div>
+        );
+    }
+
+    if (item === undefined) {
+        return (
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center p-8 text-center" dir={isAr ? "rtl" : "ltr"}>
+                <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-6 text-4xl">!</div>
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">{isAr ? "المكان غير موجود" : "Place Not Found"}</h1>
+                <p className="text-gray-500 dark:text-gray-400 mb-8">{isAr ? "عذراً، لم نتمكن من العثور على المكان المطلوب." : "Sorry, we couldn't find the requested place."}</p>
+                <button
+                    onClick={() => router.back()}
+                    className="px-6 py-3 bg-[#D4AF37] text-white rounded-xl font-bold hover:bg-[#B8860B] transition-colors"
+                >
+                    {isAr ? "الرجوع للسابقة" : "Go Back"}
+                </button>
             </div>
         );
     }
