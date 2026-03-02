@@ -2,8 +2,7 @@
 
 import { Home, Search, Flame, CheckSquare, Wallet, User, Heart, Trophy } from "lucide-react";
 
-// هنا ضفنا كلمة "wallet" و "leaderboard" للتعريف عشان المفتش يعرفهم
-export type TabType = "for-you" | "suggested" | "hot-deals" | "tasks" | "wallet" | "profile" | "favorites" | "leaderboard";
+export type TabType = "for-you" | "tasks" | "wallet" | "profile" | "favorites";
 
 interface BottomNavProps {
     activeTab: TabType;
@@ -12,11 +11,10 @@ interface BottomNavProps {
 
 export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     const tabs = [
-        { id: "for-you", icon: Home, label: "لك" },
-        { id: "hot-deals", icon: Flame, label: "عروض" },
-        { id: "leaderboard", icon: Trophy, label: "المتصدرين" },
         { id: "tasks", icon: CheckSquare, label: "مهام" },
-        { id: "wallet", icon: Wallet, label: "محفظتي" },
+        { id: "wallet", icon: Wallet, label: "المحفظة" },
+        { id: "for-you", icon: Home, label: "الرئيسية" },
+        { id: "favorites", icon: Heart, label: "المفضلة" },
         { id: "profile", icon: User, label: "حسابي" },
     ];
 

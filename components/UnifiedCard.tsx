@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { FaCheckCircle, FaThumbsUp, FaThumbsDown, FaHeart, FaRegHeart, FaPhoneAlt } from "react-icons/fa";
-import { MdLocationOn, MdRestaurantMenu, MdShoppingCart } from "react-icons/md";
+import { useRouter } from "next/navigation";
+import { FaCheckCircle, FaHeart, FaRegHeart, FaPhoneAlt, FaWhatsapp } from "react-icons/fa";
+import { MdLocationOn, MdShoppingCart, MdDirections } from "react-icons/md";
 import { useLocale } from "next-intl";
 import { UnifiedFeedItem } from "../types/app";
 
@@ -17,6 +18,7 @@ interface UnifiedCardProps {
 
 export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onToggleSave }: UnifiedCardProps) {
     const locale = useLocale();
+    const router = useRouter();
     const isAr = locale === "ar";
 
     const { place, campaign } = item;
@@ -32,7 +34,6 @@ export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onTo
     const [isCompleted, setIsCompleted] = useState(false);
     const [showOverlay, setShowOverlay] = useState(false);
     const [isActive, setIsActive] = useState(false);
-    const [likeStatus, setLikeStatus] = useState<"like" | "dislike" | null>(null);
 
     const cardRef = useRef<HTMLDivElement>(null);
 
@@ -60,8 +61,19 @@ export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onTo
 
     const progressPercentage = ((30 - timeLeft) / 30) * 100;
 
+    const navigateToPlace = () => {
+        router.push(`/${locale}/place/${place.id}`);
+    };
+
     return (
-        <div ref={cardRef} className={`relative bg-white dark:bg-slate-800 rounded-3xl shadow-sm border overflow-hidden transition-all duration-500 ${hasActiveCampaign && isActive ? 'border-[#D4AF37] scale-[1.02] shadow-xl z-10' : 'border-gray-100 dark:border-slate-700 scale-100 opacity-95'}`}>
+        <div
+            ref={cardRef}
+            onClick={navigateToPlace}
+            className={`relative bg-white dark:bg-slate-800 rounded-3xl overflow-hidden transition-all duration-300 cursor-pointer flex flex-col ${hasActiveCampaign
+                    ? 'border border-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.15)] ring-1 ring-[#D4AF37]/10'
+                    : 'border border-gray-100 dark:border-slate-700 shadow-sm'
+                }`}
+        >
             <button
                 onClick={(e) => {
                     e.stopPropagation();
@@ -72,61 +84,85 @@ export default function UnifiedCard({ item, index, onRewardEarned, isSaved, onTo
                 {isSaved ? <FaHeart className="text-red-500 text-xl animate-in zoom-in" /> : <FaRegHeart className="text-gray-400 text-xl" />}
             </button>
 
-            <div className="relative h-52 w-full bg-gray-200">
+            <div className="relative h-48 w-full bg-gray-200 dark:bg-slate-700 flex-shrink-0">
                 <Image src={imageUrl} alt={title} fill className="object-cover" unoptimized />
+
                 {hasActiveCampaign && (
                     <>
                         <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/20 z-10">
                             <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#F3E5AB] transition-all duration-1000 ease-linear shadow-[0_0_8px_#D4AF37]" style={{ width: `${progressPercentage}%` }} />
                         </div>
-                        <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-2xl text-xs font-black flex items-center gap-1.5 z-10">
-                            {isCompleted ? <span className="text-[#D4AF37] flex items-center gap-1"><FaCheckCircle /> {isAr ? "مكتمل" : "Completed"}</span> : <span className={isActive ? "text-[#D4AF37] animate-pulse" : ""}>{timeLeft} {isAr ? "ثانية" : "sec"}</span>}
+                        <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-2xl text-xs font-black flex items-center gap-1.5 z-10 border border-white/10">
+                            {isCompleted ? (
+                                <span className="text-[#D4AF37] flex items-center gap-1"><FaCheckCircle /> {isAr ? "مكتمل" : "Completed"}</span>
+                            ) : (
+                                <span className={isActive ? "text-[#D4AF37] animate-pulse" : ""}>{timeLeft} {isAr ? "ثانية" : "sec"}</span>
+                            )}
                         </div>
                     </>
                 )}
             </div>
 
-            <div className="p-5">
-                <div className="flex justify-between items-start mb-3">
+            <div className="p-4 flex flex-col flex-grow">
+                {/* Header Information */}
+                <div className="flex justify-between items-start mb-2">
                     <div className="space-y-1">
-                        <h3 className="font-black text-xl text-gray-900 dark:text-white leading-tight">{title}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 font-bold">
-                            <MdLocationOn className="text-[#D4AF37]" size={18} /> {category}
-                            {place.rating !== undefined && <span className="ml-2 text-yellow-500">★ {place.rating}</span>}
+                        <h3 className="font-black text-lg text-gray-900 dark:text-white leading-tight">{title}</h3>
+                        <p className="text-sm border-r-2 pr-2 border-[#D4AF37] text-gray-600 dark:text-gray-400 flex items-center font-bold">
+                            {category}
                         </p>
                     </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 mt-3">
-                    {place.phone && (
-                        <button className="flex items-center gap-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-                            <FaPhoneAlt className="text-blue-500" /> {isAr ? "اتصل" : "Call"}
-                        </button>
-                    )}
-                    {place.order_links && place.order_links.length > 0 && (
-                        <button className="flex items-center gap-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-                            <MdShoppingCart className="text-green-500" /> {isAr ? "اطلب أونلاين" : "Order Online"}
-                        </button>
-                    )}
-                </div>
-
-                <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100 dark:border-slate-700">
-                    <div className="flex items-center gap-6">
-                        <button className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-[#D4AF37] transition-all active:scale-95">
-                            <MdRestaurantMenu size={20} className="text-[#D4AF37]" /> {isAr ? "المنيو" : "Menu"}
-                        </button>
-                        <div className="flex items-center gap-4 border-r border-gray-100 dark:border-slate-700 pr-4">
-                            <button onClick={() => setLikeStatus(likeStatus === "like" ? null : "like")} className={`transition-all active:scale-125 ${likeStatus === "like" ? "text-green-500 scale-110" : "text-gray-400 hover:text-green-500"}`}><FaThumbsUp size={20} /></button>
-                            <button onClick={() => setLikeStatus(likeStatus === "dislike" ? null : "dislike")} className={`transition-all active:scale-125 ${likeStatus === "dislike" ? "text-red-500 scale-110" : "text-gray-400 hover:text-red-500"}`}><FaThumbsDown size={20} /></button>
+                    {place.rating && (
+                        <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 font-bold px-2 py-1 rounded-lg text-sm">
+                            <span>★</span> {place.rating}
                         </div>
-                    </div>
-                    {hasActiveCampaign && (
-                        <div className="bg-gradient-to-br from-[#D4AF37] to-[#B8860B] text-white font-black flex items-center gap-1.5 px-4 py-2 rounded-2xl shadow-lg shadow-[#D4AF37]/20">
-                            <span className="text-lg">+{rewardPoints}</span>
+                    )}
+                </div>
+
+                {/* External Actions Menu */}
+                <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); /* Map Link */ }}
+                        className="flex flex-col items-center justify-center gap-1.5 p-2 bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-xl transition-colors group"
+                    >
+                        <MdDirections className="text-blue-500 text-xl group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{isAr ? "الاتجاهات" : "Route"}</span>
+                    </button>
+
+                    <button
+                        onClick={(e) => { e.stopPropagation(); /* Call Link */ }}
+                        className="flex flex-col items-center justify-center gap-1.5 p-2 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl transition-colors group"
+                    >
+                        <FaPhoneAlt className="text-slate-600 dark:text-slate-400 text-lg group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{isAr ? "اتصال" : "Call"}</span>
+                    </button>
+
+                    <button
+                        onClick={(e) => { e.stopPropagation(); /* WhatsApp Link */ }}
+                        className="flex flex-col items-center justify-center gap-1.5 p-2 bg-green-50/80 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-xl transition-colors group"
+                    >
+                        <FaWhatsapp className="text-green-500 text-xl group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{isAr ? "واتساب" : "WhatsApp"}</span>
+                    </button>
+
+                    <button
+                        onClick={(e) => { e.stopPropagation(); /* Order Link */ }}
+                        className="flex flex-col items-center justify-center gap-1.5 p-2 bg-orange-50/80 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 rounded-xl transition-colors group"
+                    >
+                        <MdShoppingCart className="text-orange-500 text-xl group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{isAr ? "اطلب" : "Order"}</span>
+                    </button>
+                </div>
+
+                {hasActiveCampaign && (
+                    <div className="mt-4 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-lg">إعلان ممول</span>
+                        <div className="bg-gradient-to-br from-[#D4AF37] to-[#B8860B] text-white font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl shadow-md shadow-[#D4AF37]/20">
+                            <span className="text-base">+{rewardPoints}</span>
                             <span className="text-[10px] uppercase">{isAr ? "نقطة" : "Pts"}</span>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {hasActiveCampaign && showOverlay && (

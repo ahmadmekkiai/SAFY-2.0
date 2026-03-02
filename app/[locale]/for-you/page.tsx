@@ -64,10 +64,7 @@ export default function ForYouPage() {
             <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
                 <div className="flex-1 relative overflow-hidden">
                     <ForYouTab isActive={activeTab === "for-you"} onSavedChange={handleSavedChange as any} />
-                    <SuggestedTab isActive={activeTab === "suggested"} />
-                    <HotDealsTab isActive={activeTab === "hot-deals"} />
                     <TasksTab isActive={activeTab === "tasks"} />
-                    <LeaderboardTab isActive={activeTab === "leaderboard"} />
                     <WalletTab isActive={activeTab === "wallet"} />
                     <FavoritesTab isActive={activeTab === "favorites"} savedIds={savedIds} campaigns={allCampaigns as any} onToggleSave={handleToggleSave as any} />
                     <ProfileTab isActive={activeTab === "profile"} />

@@ -105,10 +105,7 @@ export default function LocalePage() {
                         onSavedChange={handleSavedChange as any}
                     />
 
-                    <SuggestedTab isActive={activeTab === "suggested"} />
-                    <HotDealsTab isActive={activeTab === "hot-deals"} />
                     <TasksTab isActive={activeTab === "tasks"} />
-                    <LeaderboardTab isActive={activeTab === "leaderboard"} />
                     <WalletTab isActive={activeTab === "wallet"} />
 
                     <FavoritesTab

@@ -28,7 +28,7 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
     const [activeChip, setActiveChip] = useState("الكل");
     const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
-    const FILTER_CHIPS = ["الكل", "شاورما", "بخاري", "مشويات", "برجر", "قهوة"];
+    const FILTER_CHIPS = ["الكل", "أكل منزلي / أسر منتجة", "شاورما", "برجر", "فول وفلافل", "بخاري", "قهوة", "حلى", "مشويات", "بيتزا"];
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -72,10 +72,10 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
                 // Include distance as a non-standard property for sorting, or we can handle sorting externally. We can add distance to Place or keep it localized. Actually, let's keep it in Place for now or sort dynamically.
             }));
 
-            // Sort by distance (we calculate dynamically or add to Place temporarily)
-            formatted.sort((a, b) => calculateDistance(lat, lng, a.place.lat, a.place.lng) - calculateDistance(lat, lng, b.place.lat, b.place.lng));
-            setCampaigns(formatted);
-            if (onSavedChange) onSavedChange(new Set(), formatted);
+            // Sort by distance (since mock data uses random offsets)
+            const sortedFormatted = [...formatted].sort((a, b) => calculateDistance(lat, lng, a.place.lat, a.place.lng) - calculateDistance(lat, lng, b.place.lat, b.place.lng));
+            setCampaigns(sortedFormatted);
+            if (onSavedChange) onSavedChange(new Set(), sortedFormatted);
         }
         setLoading(false);
     }, [onSavedChange]);
@@ -101,12 +101,12 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <input
-                                type="text" placeholder="ابحث عن عروض..." value={searchQuery}
+                                type="text" placeholder="ابحث عن مطاعم وعروض..." value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pr-10 pl-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                                className="w-full pr-10 pl-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm outline-none focus:ring-2 focus:ring-[#D4AF37]"
                             />
                         </div>
-                        <div className="flex bg-slate-200 dark:bg-slate-700 p-1 rounded-2xl gap-1">
+                        <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-2xl gap-1 shadow-sm border border-slate-100 dark:border-slate-700">
                             <button
                                 onClick={() => setViewMode("list")}
                                 className={`px-4 py-2 text-sm font-bold flex items-center gap-2 rounded-xl transition-all ${viewMode === "list" ? "bg-[#D4AF37] text-white shadow-md" : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`}
@@ -124,21 +124,38 @@ export default function ForYouTab({ isActive, onSavedChange }: ForYouTabProps) {
                         </div>
                     </div>
                 </div>
-
-                {loading ? (
-                    <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#D4AF37]" /></div>
-                ) : (
-                    <AnimatePresence mode="wait">
-                        {viewMode === "list" ? (
-                            <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                                {filteredAds.map((item, i) => <UnifiedCard key={item.place.id} item={item} index={i} isSaved={false} />)}
-                            </motion.div>
-                        ) : (
-                            <MapView campaigns={filteredAds as any} userLocation={userLocation} />
-                        )}
-                    </AnimatePresence>
-                )}
+                {/* Horizontal Scrollable Filter Chips */}
+                <div className="overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+                    <div className="flex gap-2 min-w-max">
+                        {FILTER_CHIPS.map((chip) => (
+                            <button
+                                key={chip}
+                                onClick={() => setActiveChip(chip)}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-300 ${activeChip === chip
+                                    ? "bg-[#D4AF37] text-white shadow-md shadow-[#D4AF37]/20"
+                                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                                    }`}
+                            >
+                                {chip}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
+
+            {loading ? (
+                <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#D4AF37]" /></div>
+            ) : (
+                <AnimatePresence mode="wait">
+                    {viewMode === "list" ? (
+                        <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                            {filteredAds.map((item, i) => <UnifiedCard key={item.place.id} item={item} index={i} isSaved={false} />)}
+                        </motion.div>
+                    ) : (
+                        <MapView campaigns={filteredAds as any} userLocation={userLocation} />
+                    )}
+                </AnimatePresence>
+            )}
         </div>
     );
 }

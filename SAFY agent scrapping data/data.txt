@@ -1,0 +1,110 @@
+export const mockAds = [
+  // حي السليمانية
+  {
+    id: 'r1',
+    title: 'نص حبة شواية مع الرز والبيبسي',
+    advertiser: 'مطعم الرومانسية - السليمانية',
+    category: 'مطاعم ووجبات',
+    reward: 1.50,
+    distance: 1.2,
+    lat: 24.6983,
+    lng: 46.6999,
+    imageUrl: 'https://images.unsplash.com/photo-1626200926733-611385494d49?q=80&w=500', // صورة كبسة/لحم
+    actionText: 'اطلب الآن',
+    discountPercentage: 15
+  },
+  {
+    id: 'r2',
+    title: 'شاورما دجاج عربي صاروخ',
+    advertiser: 'شاورمر - السليمانية',
+    category: 'مطاعم ووجبات',
+    reward: 1.00,
+    distance: 1.5,
+    lat: 24.6990,
+    lng: 46.7010,
+    imageUrl: 'https://images.unsplash.com/photo-1529144415895-6aaf8be872fb?q=80&w=500', // صورة شاورما
+    actionText: 'الاتجاهات',
+    discountPercentage: 10
+  },
+  // حي الورود
+  {
+    id: 'r3',
+    title: 'وجبة برجر واجيو بالجبنة',
+    advertiser: 'هامبرغيني - الورود',
+    category: 'مطاعم ووجبات',
+    reward: 2.00,
+    distance: 3.5,
+    lat: 24.7233,
+    lng: 46.6760,
+    imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=500', // صورة برجر
+    actionText: 'امسح الفاتورة',
+    discountPercentage: 20
+  },
+  {
+    id: 'r4',
+    title: 'مشويات مشكلة 1 كيلو',
+    advertiser: 'مشويات العنابي - الورود',
+    category: 'مطاعم ووجبات',
+    reward: 2.50,
+    distance: 3.8,
+    lat: 24.7240,
+    lng: 46.6780,
+    imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=500', // صورة مشويات
+    actionText: 'احجز طاولتك',
+    discountPercentage: 30
+  },
+  // حي الخليج
+  {
+    id: 'r5',
+    title: 'فطور شعبي: كبدة ومقلقل',
+    advertiser: 'فوال الطايف - الخليج',
+    category: 'مطاعم ووجبات',
+    reward: 0.75,
+    distance: 5.1,
+    lat: 24.7617,
+    lng: 46.8016,
+    imageUrl: 'https://images.unsplash.com/photo-1541529086526-db283c563270?q=80&w=500', // صورة فطور/فول
+    actionText: 'الاتجاهات',
+    discountPercentage: 10
+  },
+  {
+    id: 'r6',
+    title: 'بيتزا مارجريتا وحلقات بصل',
+    advertiser: 'مايسترو بيتزا - الخليج',
+    category: 'مطاعم ووجبات',
+    reward: 1.25,
+    distance: 5.5,
+    lat: 24.7620,
+    lng: 46.8030,
+    imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=500', // صورة بيتزا
+    actionText: 'اطلب الآن',
+    discountPercentage: 50
+  },
+  // حي الأندلس
+  {
+    id: 'r7',
+    title: 'بوفيه مفتوح غداء وعشاء',
+    advertiser: 'مطعم الأرجوان - الأندلس',
+    category: 'مطاعم ووجبات',
+    reward: 3.00,
+    distance: 4.2,
+    lat: 24.7434,
+    lng: 46.7886,
+    imageUrl: 'https://images.unsplash.com/photo-1555244162-803834f70033?q=80&w=500', // صورة بوفيه
+    actionText: 'امسح الفاتورة',
+    discountPercentage: 20
+  },
+  {
+    id: 'r8',
+    title: 'قهوة مختصة وحلى',
+    advertiser: 'دوز كافيه - الأندلس',
+    category: 'مطاعم ووجبات',
+    reward: 0.50,
+    distance: 4.0,
+    lat: 24.7450,
+    lng: 46.7900,
+    imageUrl: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=500', // صورة قهوة
+    actionText: 'الاتجاهات',
+    discountPercentage: 10
+  }
+];
